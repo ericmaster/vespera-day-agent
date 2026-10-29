@@ -43,16 +43,19 @@ export function mapRepo(repo, data) {
       text: `CI check ${x.name} on PR #${p.number}: ${x.conclusion}. Log: ${x.detailsUrl}` }));
     const reviews = p.reviews.nodes.filter((v) => v.submittedAt);
     const viewed = p.files.nodes.filter((f) => f.viewerViewedState === 'VIEWED').length;
-    const inline = reviews.reduce((n, v) => n + v.comments.totalCount, 0) + p.comments.nodes.length;
-    // First review counts as the approval signal. GitHub forbids approving your own PR, so a
-    // COMMENTED review is accepted as the approval on a solo repo (see docs/DECISIONS.md).
-    const first = reviews[0];
+    const inline = reviews.reduce((n, v) => n + v.comments.totalCount, 0) + p.comments.nodes.filter((c) => !/^\s*lgtm\W*$/i.test(c.body)).length; // a bare LGTM is not review activity
+    // Solo repos: GitHub blocks approving your own PR, so the approval moment is the earliest of the
+    // first review (COMMENTED counts), an "LGTM" comment, or the merge. The merge is the closure.
+    const lgtm = p.comments.nodes.filter((c) => /\blgtm\b/i.test(c.body)).map((c) => ({ ts: c.createdAt, how: `LGTM comment by ${c.author?.login}` }));
+    const marks = [...reviews.map((v) => ({ ts: v.submittedAt, how: `review (${v.state}) by ${v.author?.login}` })), ...lgtm,
+      ...(p.mergedAt ? [{ ts: p.mergedAt, how: 'merge' }] : [])].sort((x, y) => x.ts.localeCompare(y.ts));
+    const first = marks[0];
     if (first) {
-      const secs = Math.round((new Date(first.submittedAt) - new Date(p.createdAt)) / 1000);
-      push({ id: `${id}-review`, ts: first.submittedAt, context: ctx, action: 'approved', lines, review_seconds: secs, review_comments: inline, files_viewed: viewed,
-        text: `PR #${p.number} reviewed (${first.state}) by ${first.author?.login} after ${secs} s: ${inline} comments, ${viewed} of ${p.files.totalCount} files viewed. "${(first.body || '').slice(0, 120)}"` });
+      const secs = Math.round((new Date(first.ts) - new Date(p.createdAt)) / 1000);
+      push({ id: `${id}-review`, ts: first.ts, context: ctx, action: 'approved', lines, review_seconds: secs, review_comments: inline, files_viewed: viewed, approved_via: first.how,
+        text: `PR #${p.number} approved via ${first.how} after ${secs} s: ${inline} comments, ${viewed} of ${p.files.totalCount} files viewed.${reviews[0]?.body ? ` "${reviews[0].body.slice(0, 120)}"` : ''}` });
     }
-    if (p.mergedAt) push({ id: `${id}-merged`, ts: p.mergedAt, context: ctx, action: 'closed', review: reviews.length > 0,
+    if (p.mergedAt) push({ id: `${id}-merged`, ts: p.mergedAt, context: ctx, action: 'closed', review: true,
       text: `PR #${p.number} merged; ${reviews.length} review(s), ${runs.length} CI check run(s).` });
   }
   return out.sort((a, b) => a.ts.localeCompare(b.ts));
