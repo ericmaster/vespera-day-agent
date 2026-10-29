@@ -1,31 +1,95 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Vespera Day Agent</title>
-<style>body{font-family:system-ui;max-width:1100px;margin:1.5rem auto;padding:0 1rem;color:#1b1b2f}
-.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem}.card{border:1px solid #ddd;border-radius:8px;padding:.7rem;margin:.4rem 0}
-.invalid{background:#fff3f3}.approved{background:#f0fff3}.rejected{opacity:.5}.blocked{color:#b00020;font-weight:600}
-blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}button{margin-right:.4rem}
-#mode{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-weight:600}.off{background:#ffe9b3}.on{background:#d6f5df}
-table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px solid #eee;padding:.2rem}pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}</style></head><body>
-<h1>Vespera Day Agent <span id="mode"></span></h1>
+<!doctype html><html><head><meta charset="utf-8"><title>Vespera Day Agent</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* THEME: swap palette here (marketing config). */
+:root{--bg:#0E1116;--panel:#161B22;--line:#2A313C;--fg:#E6EDF3;--muted:#8B949E;--font:Inter,system-ui,sans-serif;
+--lane-chat:#5B8DEF;--lane-email:#B07CE8;--lane-github:#8B949E;--lane-agent:#2EC4B6;--lane-calendar:#6E7681;
+--deliberate:#F2F2F2;--switch:#F5A524;--drift-opacity:.4;--stamp:#E5484D;--vespera:#2EC4B6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font)}
+header{display:flex;align-items:center;gap:1rem;padding:.8rem 1.4rem;border-bottom:1px solid var(--line)}
+header h1{font-size:1.1rem;margin:0}.tabs button,.ctl button,.ctl select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.35rem .8rem;font:inherit;cursor:pointer}
+.tabs button.on{border-color:var(--vespera);color:var(--vespera)}main{padding:1rem 1.4rem;max-width:1300px;margin:auto}
+.ctl{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.ctl input[type=range]{flex:1;min-width:200px;accent-color:var(--vespera)}
+#clockbig{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;min-width:6.5ch}
+#modebadge{padding:.2rem .7rem;border-radius:99px;font-weight:600;font-size:.85rem;border:1px solid var(--line)}#modebadge.with{border-color:var(--vespera);color:var(--vespera)}
+#caption{font-size:1.5rem;font-weight:600;min-height:2.2rem;margin:.8rem 0;transition:opacity .4s}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem 0 1.4rem}
+.lane{position:relative;height:52px;border-bottom:1px solid var(--line);margin-left:110px}.lane:last-of-type{border-bottom:0}
+.lane .lbl{position:absolute;left:-104px;top:16px;font-size:.8rem;color:var(--muted);display:flex;gap:.4rem;align-items:center}.dot{width:9px;height:9px;border-radius:50%}
+.ev{position:absolute;top:10px;height:32px;border-radius:4px;min-width:4px;animation:drop .45s ease-out;overflow:visible;font-size:.68rem;padding:2px 4px;color:#0E1116;white-space:nowrap;cursor:default}
+@keyframes drop{from{transform:translateY(-18px);opacity:0}}
+.ev.deliberate{background:var(--deliberate)!important;opacity:1!important}
+.ev.drift{opacity:var(--drift-opacity)!important;background-image:repeating-linear-gradient(45deg,var(--switch) 0 3px,transparent 3px 9px)!important}
+.ev.stamp{outline:2px solid var(--stamp);outline-offset:1px}.ev.vflag{outline:2px solid var(--vespera);outline-offset:1px}
+.ev.parked{opacity:.15!important;background:transparent!important;border:1px dashed var(--muted)}
+.ev.block{background:transparent!important;border:2px solid var(--vespera);color:var(--vespera);animation:pulse 1.6s ease-in-out infinite;opacity:1!important}
+@keyframes pulse{50%{box-shadow:0 0 14px var(--vespera)}}
+.tx{display:block;overflow:hidden}.tag{position:absolute;top:-15px;font-size:.66rem;padding:0 4px;border-radius:3px;white-space:nowrap;z-index:3}.tag.red{background:var(--stamp);color:#fff}.tag.teal{background:var(--vespera);color:#0E1116}
+.tick{position:absolute;width:2px;background:var(--switch);opacity:.85;z-index:2;top:0;bottom:1.4rem}
+#playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--fg);z-index:4}
+.axis{position:relative;margin-left:110px;height:1rem;font-size:.7rem;color:var(--muted)}.axis span{position:absolute;transform:translateX(-50%)}
+.row{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:.6rem;margin:.8rem 0}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
+.kpi b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}.kpi small{color:var(--muted)}#ctx b{font-size:1rem}
+#nudge{position:absolute;right:24px;top:30px;width:360px;background:#0E1116;border:2px solid var(--vespera);border-radius:12px;padding:1rem;z-index:10;animation:pulse 1.6s ease-in-out infinite;display:none}
+#nudge h3{margin:.1rem 0 .4rem}#nudge p{margin:.3rem 0;color:#C9D1D9}#nudge button{margin:.25rem .3rem 0 0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.35rem .6rem;font:inherit;cursor:pointer}
+#nudge button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);font-weight:600}#nudge .fine{font-size:.72rem;color:var(--muted)}
+#summary{display:none}.cmp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.7rem 1rem;margin:.6rem 0}.cmp.with{border-color:var(--vespera)}
+.cmp h3{margin:.1rem 0 .5rem;font-size:1rem}.cmp .g{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}.cmp .g div b{display:block;font-size:1.4rem}.cmp small{color:var(--muted)}
+#closing{font-size:1.4rem;font-weight:600;text-align:center;margin:1rem}#evinfo{font-size:.8rem;color:var(--muted);min-height:1.2rem;margin-top:.4rem}
+#live{display:none;background:#fff;color:#1b1b2f;border-radius:10px;padding:1rem}#live a{color:#5b3cc4}
+#live .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem}#live .card{border:1px solid #ddd;border-radius:8px;padding:.7rem;margin:.4rem 0}#live .invalid{background:#fff3f3}#live .approved{background:#f0fff3}#live .rejected{opacity:.5}#live .blocked{color:#b00020;font-weight:600}#live blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}#live button{margin-right:.4rem}#live #mode{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-weight:600}#live .off{background:#ffe9b3}#live .on{background:#d6f5df}#live table{font-size:.85rem;border-collapse:collapse;width:100%}#live td{border-bottom:1px solid #eee;padding:.2rem}#live pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}
+</style>
+<script>
+// BEATS / COPY: marketing can swap captions here. {placeholders} are filled from detector outputs only.
+window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
+ beats:[
+  {when:'start',text:'Friday. Four agents, one dev.'},
+  {when:'switch:3',text:'Every switch costs a little.'},
+  {when:'event:d26',mode:'without',text:'Approved. Not reviewed.',freezeMs:2500},
+  {when:'event:d26',mode:'with',text:'{stamp_ctx}: flagged at approval: {stamp_detail}.'},
+  {when:'event:d29',text:'An AI remark: "want me to refactor it?"'},
+  {when:'drift',mode:'without',text:'{drift_minutes} minutes. Not the task you planned.'},
+  {when:'flag',mode:'with',text:'Minute {threshold}: Vespera notices.'},
+  {when:'end',text:"It doesn't measure your hours. It measures whether you got to review."}],
+ nudge:{title:"You've drifted into the {side_quest_short}.",body:'{anchor_short} is still waiting for a real review. Want 20 quiet minutes for it?',back:'Back to {anchor_ref}',keep:'Keep refactoring',later:'Remind me later',fine:'Only you see this.'}};
+</script></head><body>
+<header><h1>Vespera Day Agent</h1><div class="tabs"><button id="tabReplay" class="on">Replay the day</button> <button id="tabLive">Live agent</button></div><span id="modebadge"></span></header>
+<main><section id="replay">
+<div class="ctl"><button id="story">▶ Full story</button><button id="mWithout">Without Vespera</button><button id="mWith">With Vespera</button>
+<button id="play">❚❚</button><select id="speed"><option value=.5>0.5×</option><option value=1 selected>1×</option><option value=2>2×</option><option value=4>4×</option><option value=10>10×</option></select>
+<span id="clockbig">08:35</span><input type="range" id="scrub" min=0 max=100 value=0 step=1></div>
+<div id="caption"></div>
+<div class="row"><div class="kpi" id="ctx"><small>Current context</small><b>—</b><small id="ctxsrc"></small></div>
+<div class="kpi"><small>Context switches</small><b id="kSw">0</b></div><div class="kpi"><small>Closed with real review</small><b id="kRev">0</b></div>
+<div class="kpi"><small id="kStL">Rubber-stamped</small><b id="kSt">0</b></div><div class="kpi"><small>Drift (min)</small><b id="kDr">0</b></div></div>
+<div class="stage" id="stage"><div id="lanes"></div><div class="axis" id="axis"></div><div id="playhead"></div>
+<div id="nudge"><h3 id="nTitle"></h3><p id="nBody"></p><button class="pri" id="nBack"></button><button id="nKeep"></button><button id="nLater"></button><p class="fine" id="nFine"></p></div></div>
+<div id="evinfo"></div>
+<div id="summary"><div class="cmp" id="cmpWithout"></div><div class="cmp with" id="cmpWith"></div><div id="closing"></div></div>
+</section>
+<section id="live">
+<h2>Live agent <span id="mode"></span></h2>
 <p><b>It doesn't measure your hours, it measures whether you got to review.</b> You grant each source; the data stays yours. Every alert and change shows its evidence, passes a deterministic validator, and waits for your approval. Nothing is sent.</p>
 <div class="card" id="kpi"></div><p id="gh" style="font-size:.85rem"></p>
-<p>Simulated clock: <select id="clock"></select> <button id="check">Check now</button></p>
+<p>Simulated clock: <select id="clock"></select> <button id="check">Check now (run agent)</button> <button id="reset">Reset demo</button> <span id="status"></span></p>
 <div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><b>Task drift</b><div id="drift"></div></div><div class="card"><b>Review evidence</b><div id="rstamp"></div></div></div>
 <div class="card" id="eod"></div>
 <h2>Context-switch timeline (granted sources only)</h2><div id="timeline" style="font-size:.8rem;max-height:220px;overflow:auto"></div>
 <div class="grid"><div>
 <h2>1. Grant sources</h2><div id="sources"></div>
-<h2>2. Brain-dump (voice or text)</h2>
+<details><summary><b>Advanced</b>: voice / text brain-dump</summary><h2>2. Brain-dump (voice or text)</h2>
 <button id="rec">● Record</button> <input type="file" id="file" accept="audio/*"> <span id="vstatus"></span>
 <textarea id="paste" rows="3" style="width:100%" placeholder="…or paste/type a transcript"></textarea><button id="savenote">Save note</button>
-<div id="notes"></div>
-<h2>3. Run agent</h2><button id="run">Run agent</button> <button id="reset">Reset demo</button> <span id="status"></span><p id="summary"></p>
-<h2>4. Review proposals</h2><div id="proposals"></div>
+<div id="notes"></div></details>
+<p id="lsummary"></p>
+<h2>2. Review proposals</h2><div id="proposals"></div>
 </div><div>
 <h2>Consent log</h2><button onclick="api('/api/probe',{id:'notes:ramblings'}).then(refresh)">Test consent: read notes</button><table id="log"></table>
 <h2>Drafts (never sent)</h2><div id="drafts"></div>
 <h2>Calendar (local)</h2><div id="events"></div>
 <h2>Tasks (local)</h2><div id="tasks"></div>
 </div></div>
+</section></main>
 <script>
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
@@ -53,8 +117,8 @@ async function refresh(){const s=await api('/api/state');
  $('#drafts').innerHTML=s.drafts.map(x=>`<div class="card"><small>${esc(x.channel)} · draft, not sent</small><br>${esc(x.text)}</div>`).join('')||'<i>none</i>';
  $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
 async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
-$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)${r.fallback?' · model failed, OFFLINE FALLBACK used: '+r.fallback:''}`;$('#summary').textContent=r.summary||'';refresh();};
-$('#reset').onclick=async()=>{await api('/api/reset',{});$('#summary').textContent='';refresh();};
+const runAgent=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)${r.fallback?' · model failed, OFFLINE FALLBACK used: '+r.fallback:''}`;$('#lsummary').textContent=r.summary||'';refresh();};
+$('#reset').onclick=async()=>{await api('/api/reset',{});$('#lsummary').textContent='';refresh();};
 $('#savenote').onclick=async()=>{const r=await api('/api/voice',{text:$('#paste').value});if(r.error)alert(r.error);else $('#paste').value='';refresh();};
 // Audio -> mono 16-bit PCM WAV @16 kHz (what Muse Voice Transcribe accepts), done in the browser.
 async function toWav(blob){const ac=new AudioContext();const buf=await ac.decodeAudioData(await blob.arrayBuffer());
@@ -70,6 +134,104 @@ let rec;$('#rec').onclick=async()=>{if(rec?.state==='recording'){rec.stop();retu
 $('#file').onchange=e=>e.target.files[0]&&sendAudio(e.target.files[0]);
 ['09:30','10:30','11:30','12:00','12:30','17:30'].forEach(h=>$('#clock').insertAdjacentHTML('beforeend',`<option ${h==='12:30'?'selected':''}>${h}</option>`));
 $('#clock').onchange=async()=>{await api('/api/clock',{now:`2026-10-30T${$('#clock').value}:00-05:00`});refresh();};
-$('#check').onclick=async()=>{await $('#clock').onchange();$('#run').onclick();};
+$('#check').onclick=async()=>{await $('#clock').onchange();runAgent();};
 loadSources();refresh();
-</script></body></html>
+</script><script>
+(()=>{const C=window.VDA_CONFIG,$=s=>document.querySelector(s),Q=new URLSearchParams(location.search);
+const LBL={chat:'Chat',email:'Email',github:'GitHub',agent:'AI sessions',calendar:'Calendar'};
+const M=iso=>{const d=new Date(iso);return (d.getTime()-5*3600e3)/60000%1440;},hm=m=>{m=Math.round(m);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+let R,T0,T1,t=0,mode='without',playing=true,choice=null,story=false,fired=new Set(),freeze=0,els={},last=performance.now(),endAt=0;
+const fill=s=>s.replace(/\{(\w+)\}/g,(_,k)=>V[k]??k);let V={};
+const pct=m=>((m-T0)/(T1-T0)*100)+'%';
+function setCap(s){const c=$('#caption');c.style.opacity=0;setTimeout(()=>{c.textContent=fill(s);c.style.opacity=1},200);}
+const ref=a=>(a.match(/PR #\d+/)||[a])[0];
+fetch('/api/replay').then(r=>r.json()).then(d=>{R=d;T0=Math.floor(M(d.start)/30)*30;T1=Math.ceil(M(d.end)/30)*30;
+ const dr=d.without.drift[0],st=d.without.stamps[0],w=d.with;
+ V={drift_minutes:dr?.minutes,threshold:d.threshold,anchor:dr?.anchor,anchor_ref:dr&&ref(dr.anchor),anchor_short:dr?.anchor,side_quest:dr?.side_quest,side_quest_short:dr?.side_quest.split(' ').pop().toLowerCase(),
+  stamp_ctx:st&&ref(st.context),stamp_detail:st?.flags.map(f=>f.detail).slice(0,2).join('; ')};
+ $('#lanes').innerHTML=d.lanes.map(l=>`<div class="lane" id="lane-${l}"><span class="lbl"><i class="dot" style="background:var(--lane-${l})"></i>${LBL[l]}</span></div>`).join('');
+ let ax='';for(let m=T0;m<=T1;m+=30)ax+=`<span style="left:${pct(m)}">${hm(m)}</span>`;$('#axis').innerHTML=ax;
+ $('#scrub').max=T1-T0;$('#scrub').step=1;
+ const n=C.nudge;$('#nTitle').textContent=fill(n.title);$('#nBody').textContent=fill(n.body);$('#nBack').textContent=fill(n.back);$('#nKeep').textContent=fill(n.keep);$('#nLater').textContent=fill(n.later);$('#nFine').textContent=fill(n.fine);
+ $('#speed').value=Q.get('speed')||1;
+ const m0=Q.get('mode');if(m0==='with'||m0==='without'){setMode(m0)}else{story=true;setMode('without')}
+ if(Q.get('t')){const[h,mm]=Q.get('t').split(':');seek(h*60+ +mm-T0);}
+ if(Q.get('choice'))choice=Q.get('choice');if(Q.get('paused'))playing=false;
+ if(Q.get('summary'))showSummary();
+ render();requestAnimationFrame(loop);});
+function setMode(m){mode=m;choice=null;fired=new Set();t=0;endAt=0;Object.values(els).forEach(e=>e.remove());els={};$('#nudge').style.display='none';$('#summary').style.display='none';
+ $('#modebadge').textContent=m==='with'?'With Vespera · simulated refocus':'Without Vespera';$('#modebadge').className=m;$('#kStL').textContent=m==='with'?'Rubber-stamps flagged':'Rubber-stamped (passed silently)';playing=true;}
+function seek(x){t=Math.max(0,Math.min(T1-T0,x));const now=T0+t;fired=new Set(C.beats.filter(b=>beatAt(b)!=null&&beatAt(b)<now).map(b=>C.beats.indexOf(b)));
+ if(mode==='with'){const f=M(R.with.flag_at);if(now<f){choice=null;$('#nudge').style.display='none'}else if(!choice)choice='back';}
+ for(const[id,e]of Object.entries(els)){if(+e.dataset.m>now){e.remove();delete els[id]}}}
+function events(){let ev=R.events.slice();if(mode==='with'&&choice==='back')ev.push({...R.with.refocus_event,lane:'github',dwell:0});return ev;}
+const driftIds=()=>new Set(R.without.drift[0]?.evidence||[]);
+function beatAt(b){if(b.mode&&b.mode!==mode)return null;const w=b.when;if(w==='start')return T0;if(w==='end')return T1;
+ if(w.startsWith('event:')){const e=R.events.find(x=>x.id===w.slice(6));return e?M(e.ts):null}
+ if(w==='flag')return R.with?M(R.with.flag_at):null;if(w==='drift'){const d=R.without.drift[0];return d?M(d.end):null}
+ if(w.startsWith('switch:')){const e=R.events.filter(x=>x.switch)[+w.slice(7)-1];return e?M(e.ts):null}return null;}
+function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+ if(playing&&performance.now()>freeze){let sp=C.minutesPerSecond*$('#speed').value;
+  if(mode==='with'&&R.with&&!choice){const f=M(R.with.flag_at)-T0;if(f-t<3)sp*=C.slowNearFlag;if(t+sp*dt>=f){t=f;hitFlag();}else t+=sp*dt}else t+=sp*dt;
+  if(t>=T1-T0){t=T1-T0;playing=false;onEnd();}}
+ beats();render();requestAnimationFrame(loop);}
+function beats(){const now=T0+t;C.beats.forEach((b,i)=>{const a=beatAt(b);if(a==null||fired.has(i)||now<a)return;fired.add(i);setCap(b.text);if(b.freezeMs)freeze=performance.now()+b.freezeMs;});}
+function hitFlag(){if($('#nudge').style.display==='block')return;$('#nudge').style.display='block';playing=false;
+ const ms=+(Q.get('autochoose')??C.autoChooseAfterMs);if(ms>0)setTimeout(()=>{if(!choice)choose('back')},ms);}
+function choose(c){choice=c;$('#nudge').style.display='none';playing=true;if(c==='back')setCap('Back to {anchor_ref}. Side-quest parked, 20-minute review block protected.');}
+$('#nBack').onclick=()=>choose('back');$('#nKeep').onclick=()=>choose('keep');$('#nLater').onclick=()=>choose('later');
+function onEnd(){if(story&&mode==='without'){setTimeout(()=>{if(!story)return;setCap('Rewind. Same Friday, with Vespera.');setTimeout(()=>{setMode('with');setCap('Rewind. Same Friday, with Vespera.')},1800)},2500)}else if(mode==='with')showSummary();}
+function render(){if(!R)return;const now=T0+t,back=mode==='with'&&choice==='back',dIds=driftIds(),flag=R.with&&M(R.with.flag_at);
+ $('#clockbig').textContent=hm(now);$('#scrub').value=Math.round(t);$('#playhead').style.left=`calc(110px + (100% - 110px) * ${(now-T0)/(T1-T0)})`;
+ const ev=events(),stampIds=new Set(R.without.stamps.map(s=>s.event)),anchor=R.without.drift[0]?.anchor;
+ // calendar blocks
+ const cal=[...R.calendar.map(c=>({id:c.id,lane:'calendar',ts:c.start,endM:M(c.end),label:c.title})),...(back?[{id:'blk',lane:'calendar',ts:R.with.block.start,endM:M(R.with.block.end),label:'🛡 '+R.with.block.title,block:true}]:[])];
+ for(const c of cal){if(M(c.ts)>now){continue}let e=els[c.id];if(!e){e=els[c.id]=document.createElement('div');e.className='ev'+(c.block?' block':'');e.dataset.m=M(c.ts);e.textContent=c.label;e.title=c.label;
+   if(!c.block)e.style.background='var(--lane-calendar)';$('#lane-calendar').appendChild(e)}
+  e.style.left=pct(M(c.ts));e.style.width=pct(T0+Math.max(0,Math.min(c.endM,now)-M(c.ts)));}
+ if(!back&&els.blk){els.blk.remove();delete els.blk}
+ let prev=null;const ticks=[];
+ for(const x of ev){const m=M(x.ts);if(m>now)break;
+  const parked=back&&R.with.parked.includes(x.id);let e=els[x.id];
+  if(!e){e=els[x.id]=document.createElement('div');e.dataset.m=m;e.title=`${hm(m)} · ${x.context} · ${x.action}${x.trigger?' · trigger: '+x.trigger:''}\n${x.text}`;
+   e.onmouseenter=()=>$('#evinfo').textContent=e.title.replace('\n',' — ');$('#lane-'+x.lane).appendChild(e);}
+  let cls='ev',tag='';const isDrift=dIds.has(x.id)&&x.context!==anchor;
+  if(parked)cls+=' parked';else if(isDrift&&!back)cls+=' drift';
+  if(stampIds.has(x.id)){if(mode==='with'){cls+=' vflag';tag='<span class="tag teal">flagged: no CI run</span>'}else{cls+=' stamp';tag='<span class="tag red">tests: not run</span>'}}
+  else if(x.simulated||(x.action==='approved')||(x.context===anchor&&x.action==='work'&&m>M(R.without.drift[0]?.start||0)))cls+=' deliberate';
+  e.className=cls;let endM=m+x.dwell;if(back&&isDrift)endM=Math.min(endM,flag);if(x.simulated)endM=M(R.with.block.end);
+  const w=Math.max(0,Math.min(endM,now)-m);e.style.left=pct(m);e.style.width=`max(4px, ${w/(T1-T0)*100}%)`;
+  e.style.background=`var(--lane-${x.lane})`;e.style.opacity=.45+Math.min(.55,x.dwell/30);// attention: longer dwell = more solid
+  e.innerHTML=tag+'<span class="tx">'+(w>6?x.context.replace(/^PR /,''):'')+'</span>';
+  if(prev&&x.switch&&!parked)ticks.push([m,R.lanes.indexOf(prev.lane),R.lanes.indexOf(x.lane)]);if(!parked)prev=x;}
+ $('#stage').querySelectorAll('.tick').forEach(n=>n.remove());
+ for(const[m,a,b]of ticks){const d=document.createElement('div');d.className='tick';d.style.left=`calc(110px + (100% - 110px) * ${(m-T0)/(T1-T0)})`;
+  const lo=Math.min(a,b),hi=Math.max(a,b);d.style.top=(10+lo*52+20)+'px';d.style.height=Math.max(12,(hi-lo)*52)+'px';d.style.bottom='auto';$('#stage').appendChild(d);}
+ // counters
+ const cs=(mode==='with'&&back?R.with:R.without).counters.filter(c=>M(c.ts)<=now).pop()||{switches:0,reviewed:0,stamped:0,drift:0};
+ const dr=R.without.drift[0];let live=cs.drift;if(dr&&now>=M(dr.start)){const stop=back?flag:M(dr.end);live=Math.max(live,Math.round(Math.min(now,stop)-M(dr.start)));}
+ $('#kSw').textContent=cs.switches;$('#kRev').textContent=cs.reviewed;$('#kSt').textContent=cs.stamped;$('#kDr').textContent=live;
+ const cur=prev;if(cur){$('#ctx b').textContent=cur.context;$('#ctx b').style.color=`var(--lane-${cur.lane})`;$('#ctxsrc').textContent=LBL[cur.lane]+' · since '+hm(M(cur.ts));}}
+function showSummary(){const W=R.without,Wi=R.with,dr=W.drift[0];if(!Wi)return;
+ const g=(h,cls,vals)=>`<h3>${h}</h3><div class="g">${vals.map(([k,v,s])=>`<div><small>${k}</small><b>${v}</b><small>${s||''}</small></div>`).join('')}</div>`;
+ $('#cmpWithout').innerHTML=g('Without Vespera · detector output on fixtures/day.json','',[
+  ['Longest drift',W.metrics.drift_minutes_max+' min',`${dr.side_quest}, trigger ${dr.trigger} (${dr.trigger_event})`],
+  ['Back on '+ref(dr.anchor),hm(M(W.anchor_resumed_at)),'after a chat ping'],
+  ['Rubber-stamps',W.metrics.rubber_stamp_reviews,'passed silently: '+W.stamps.map(s=>ref(s.context)).join(', ')],
+  ['Closed with real review',W.metrics.closed_with_review+'/'+W.metrics.opened],['Context switches',W.metrics.switches_total]]);
+ $('#cmpWith').innerHTML=g('With Vespera · simulated refocus at the detector flag ('+hm(M(Wi.flag_at))+', threshold '+Wi.threshold+' min)','',[
+  ['Longest drift',Wi.metrics.drift_minutes_max+' min','side-quest parked: '+Wi.parked.join(', ')],
+  ['Back on '+ref(Wi.anchor),hm(M(Wi.anchor_resumed_at)),'20-min protected review block'],
+  ['Rubber-stamps',Wi.metrics.rubber_stamp_reviews,'flagged at approval: '+Wi.stamps_flagged.map(ref).join(', ')],
+  ['Closed with real review',Wi.metrics.closed_with_review+'/'+Wi.metrics.opened,'simulated'],['Context switches',Wi.metrics.switches_total,'simulated']]);
+ $('#closing').textContent=fill(C.beats.find(b=>b.when==='end').text);$('#summary').style.display='block';}
+$('#play').onclick=()=>{playing=!playing;if(playing&&t>=T1-T0)seek(0);$('#play').textContent=playing?'❚❚':'▶';};
+setInterval(()=>$('#play').textContent=playing?'❚❚':'▶',300);
+$('#scrub').oninput=e=>{seek(+e.target.value);};
+$('#mWithout').onclick=()=>{story=false;setMode('without')};$('#mWith').onclick=()=>{story=false;setMode('with')};$('#story').onclick=()=>{story=true;setMode('without')};
+$('#tabReplay').onclick=()=>{$('#replay').style.display='';$('#live').style.display='none';$('#tabReplay').className='on';$('#tabLive').className='';};
+$('#tabLive').onclick=()=>{$('#replay').style.display='none';$('#live').style.display='block';$('#tabLive').className='on';$('#tabReplay').className='';playing=false;};
+if(Q.get('tab')==='live')setTimeout(()=>$('#tabLive').onclick(),0);
+})();
+</script>
+</body></html>

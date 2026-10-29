@@ -9,6 +9,8 @@ import { makeToolbox } from './tools.js';
 import { createState, approve, revalidate } from './state.js';
 import { computeDay, dayEvents } from './metrics.js';
 import { liveEvents, liveStatus } from './adapters/github-live.js';
+import { buildReplay } from './playback.js';
+import { json } from './adapters/index.js';
 import { transcribeWav, addNote } from './transcribe.js';
 
 const grants = createGrants(adapters);
@@ -39,6 +41,7 @@ export async function handle(req) {
     const { pathname } = new URL(req.url, 'http://x');
     const M = req.method;
     if (M === 'GET' && pathname === '/') return { code: 200, type: 'text/html; charset=utf-8', body: readText('public/index.html') };
+    if (M === 'GET' && pathname === '/api/replay') return send(res, 200, buildReplay(json('day.json'), json('calendar.json'), { grants: ['chat:team', 'email:work', 'agent:coding-sessions', 'github:repo'] }));
     if (M === 'GET' && pathname === '/api/sources') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey, offline: isOffline(), github: liveStatus() });
     if (M === 'POST' && pathname === '/api/github/refresh') { liveEvents(undefined, { refresh: true }); revalidate(proposals, tb().ctx()); return send(res, 200, liveStatus()); }
     if (M === 'POST' && pathname === '/api/grants') { const { id, granted } = await body(req); grants.set(id, granted); state.log.push({ at: new Date().toISOString(), tool: 'user:grant', source_id: id, allowed: true, note: granted ? 'granted by user' : 'revoked by user' }); revalidate(proposals, tb().ctx()); return send(res, 200, grants.list()); }
