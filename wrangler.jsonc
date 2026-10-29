@@ -4,6 +4,8 @@
   "main": "worker/index.js",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Static: only docs/site/demo-narrated.mp4 is uploaded (see docs/site/.assetsignore).
+  "assets": { "directory": "./docs/site" },
   "rules": [{ "type": "Text", "globs": ["**/*.json", "**/*.txt", "**/*.md", "**/*.html"], "fallthrough": false }],
   "durable_objects": { "bindings": [{ "name": "DEMO", "class_name": "DemoApp" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DemoApp"] }],

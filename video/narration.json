@@ -1,0 +1,14 @@
+{
+ "b1": "Eric Aguayo, in his own words: I approved eight hundred lines from an agent without running the tests, just to clear my queue before bed. That night we started building Vespera Day Agent.",
+ "b2": "Agents write the code now, so the bottleneck is review. Faros, across twenty-two thousand developers: thirty-one percent more pull requests merge with no review at all. LinearB: agent pull requests wait five point three times longer for a reviewer. DORA twenty twenty-five: AI raises throughput, and instability with it.",
+ "b2h": "Our hypothesis: show a developer, during the day and with evidence, what got closed without proper review, protect one review block, and more work gets closed with proper review.",
+ "b3": "This is a sample Friday, replayed from a fixture. Chat, email, GitHub, agent sessions and calendar each get a lane. First, the day without Vespera.",
+ "b4": "At eleven twenty-eight, PR forty-seven, eight hundred lines from an agent, is approved after forty seconds. Zero of twenty-three files viewed. It passes silently.",
+ "b5": "At eleven forty-one, during the review of PR forty-four, an AI side remark starts a middleware refactor. Thirty-one minutes later, PR forty-four is still open. The foreground lane, including this video chip, is simulated data.",
+ "b6": "Rewind. Same Friday, with Vespera. The widget sits beside your work. At eleven fifty-six, fifteen minutes into the drift, it asks once, and only you see this.",
+ "b7": "Back to PR forty-four. The side quest is parked, a twenty-minute review block is protected, and the rubber-stamp approval is flagged instead of passing silently.",
+ "b8": "In the live agent, the detectors are code. Muse Spark, Meta's model, reads the metrics through tool calls and proposes alerts and a review block. This is a real run, cached so you don't wait. In an earlier documented live run, eight of eight proposals passed the validator.",
+ "b9": "Why? opens the evidence behind each proposal. A validator checks every number and every quote against the source events. If the model says thirty-one minutes where the evidence says seventeen, it is rejected, and the model retries. You approve each change.",
+ "b10": "Every source starts off until you grant it. Foreground data is category only, opt-in, and comes from a local adapter. There is no manager view.",
+ "b11": "Vespera Day Agent, built with Muse Spark. It doesn't measure your hours. It measures whether you got to review."
+}

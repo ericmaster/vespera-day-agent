@@ -6,3 +6,7 @@ state/
 *.log
 .wrangler/
 .data/
+aud/
+work/
+frames/
+*.wav
