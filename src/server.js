@@ -53,4 +53,4 @@ createServer(async (req, res) => {
     }
     send(res, 404, { error: 'not found' });
   } catch (e) { send(res, 500, { error: e.message }); }
-}).listen(config.port, () => console.log(`Vespera Day Agent on http://localhost:${config.port} (model ${config.model}, ${isOffline() ? 'OFFLINE mode' : 'live'}; GitHub live: ${process.env.GITHUB_LIVE_REPO || 'off'})`); liveEvents());
+}).listen(config.port, () => { console.log(`Vespera Day Agent on http://localhost:${config.port} (model ${config.model}, ${isOffline() ? 'OFFLINE mode' : 'live'}; GitHub live: ${process.env.GITHUB_LIVE_REPO || 'off'})`); liveEvents(); });
