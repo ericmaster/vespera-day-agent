@@ -4,7 +4,7 @@
 /* THEME: swap palette here (marketing config). */
 :root{--bg:#0E1116;--panel:#161B22;--line:#2A313C;--fg:#E6EDF3;--muted:#8B949E;--font:Inter,system-ui,sans-serif;
 --lane-chat:#5B8DEF;--lane-email:#B07CE8;--lane-github:#8B949E;--lane-agent:#2EC4B6;--lane-calendar:#6E7681;
---deliberate:#F2F2F2;--switch:#F5A524;--drift-opacity:.4;--stamp:#E5484D;--vespera:#2EC4B6}
+--deliberate:#F2F2F2;--att-code_review:#F2F2F2;--att-editor:#3FA796;--att-ai_session:#2EC4B6;--att-chat:#5B8DEF;--att-email:#B07CE8;--att-social_video:#F5A524;--att-afk:#30363D;--att-other:#6E7681;--switch:#F5A524;--drift-opacity:.4;--stamp:#E5484D;--vespera:#2EC4B6}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font)}
 header{display:flex;align-items:center;gap:1rem;padding:.8rem 1.4rem;border-bottom:1px solid var(--line)}
 header h1{font-size:1.1rem;margin:0}.tabs button,.ctl button,.ctl select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.35rem .8rem;font:inherit;cursor:pointer}
@@ -35,6 +35,9 @@ header h1{font-size:1.1rem;margin:0}.tabs button,.ctl button,.ctl select{backgro
 #nudge button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);font-weight:600}#nudge .fine{font-size:.85rem;color:var(--muted)}
 #summary{display:none}.cmp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.7rem 1rem;margin:.6rem 0}.cmp.with{border-color:var(--vespera)}
 .cmp h3{margin:.1rem 0 .5rem;font-size:1rem}.cmp .g{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}.cmp .g div b{display:block;font-size:1.4rem}.cmp small{color:var(--muted)}
+.att{position:absolute;top:14px;height:24px;border-radius:3px;opacity:.75}.att.social_video{opacity:1;background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.35) 0 3px,transparent 3px 8px)}.att.afk{border:1px dashed var(--muted)}.att.sim{outline:1px dashed var(--vespera)}
+#lane-attention{background:repeating-linear-gradient(45deg,#1b2129 0 4px,transparent 4px 10px)}
+#attbar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:.5rem}#attbar .chip{border:1px solid var(--switch);color:var(--switch);border-radius:99px;padding:.1rem .6rem;font-weight:600}#attbar .chip.v{border-color:var(--vespera);color:var(--vespera)}#attbar .chip.w{border-color:var(--deliberate);color:var(--deliberate)}#attbar i.dot{width:8px;height:8px;border-radius:50%;background:var(--vespera);display:inline-block}
 #closing{font-size:1.4rem;font-weight:600;text-align:center;margin:1rem}#evinfo{font-size:.8rem;color:var(--muted);min-height:1.2rem;margin-top:.4rem}
 #live{display:none;background:#fff;color:#1b1b2f;border-radius:10px;padding:1rem}#live a{color:#5b3cc4}
 #live .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem}#live .card{border:1px solid #ddd;border-radius:8px;padding:.7rem;margin:.4rem 0}#live .invalid{background:#fff3f3}#live .approved{background:#f0fff3}#live .rejected{opacity:.5}#live .blocked{color:#b00020;font-weight:600}#live blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}#live button{margin-right:.4rem}#live #mode{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-weight:600}#live .off{background:#ffe9b3}#live .on{background:#d6f5df}#live table{font-size:.85rem;border-collapse:collapse;width:100%}#live td{border-bottom:1px solid #eee;padding:.2rem}#live pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}
@@ -65,7 +68,7 @@ window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
 <div class="kpi"><small id="kStL">Rubber-stamped</small><b id="kSt">0</b></div><div class="kpi"><small>Drift (min)</small><b id="kDr">0</b></div></div>
 <div class="stage" id="stage"><div id="lanes"></div><div class="axis" id="axis"></div><div id="playhead"></div>
 </div>
-<div id="nudge"><h3 id="nTitle"></h3><p id="nBody"></p><button class="pri" id="nBack"></button><button id="nKeep"></button><button id="nLater"></button><p class="fine" id="nFine"></p></div><div id="evinfo"></div>
+<div id="nudge"><h3 id="nTitle"></h3><p id="nBody"></p><button class="pri" id="nBack"></button><button id="nKeep"></button><button id="nLater"></button><p class="fine" id="nFine"></p></div><div id="attbar"><span><i class="dot"></i> Capture (replay): foreground app class · browser tab class · away. <b>SIMULATED fixture</b>, category only, opted in for this replay (off by default).</span><span id="attchips"></span></div><div id="evinfo"></div>
 <div id="summary"><div class="cmp" id="cmpWithout"></div><div class="cmp with" id="cmpWith"></div><div id="closing"></div></div>
 </section>
 <section id="live">
@@ -152,7 +155,7 @@ $('#check').onclick=async()=>{await $('#clock').onchange();runAgent();};
 loadSources();refresh();
 </script><script>
 (()=>{const C=window.VDA_CONFIG,$=s=>document.querySelector(s),Q=new URLSearchParams(location.search);
-const LBL={chat:'Chat',email:'Email',github:'GitHub',agent:'AI sessions',calendar:'Calendar'};
+const LBL={chat:'Chat',email:'Email',github:'GitHub',agent:'AI sessions',calendar:'Calendar',attention:'Foreground*'};
 const M=iso=>{const d=new Date(iso);return (d.getTime()-5*3600e3)/60000%1440;},hm=m=>{m=Math.round(m);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
 let R,T0,T1,t=0,mode='without',playing=true,choice=null,story=false,fired=new Set(),freeze=0,els={},last=performance.now(),endAt=0;
 const fill=s=>s.replace(/\{(\w+)\}/g,(_,k)=>V[k]??k);let V={};
@@ -163,7 +166,7 @@ fetch('/api/replay').then(r=>r.json()).then(d=>{R=d;T0=Math.floor(M(d.start)/30)
  const dr=d.without.drift[0],st=d.without.stamps[0],w=d.with;
  V={drift_minutes:dr?.minutes,threshold:d.threshold,anchor:dr?.anchor,anchor_ref:dr&&ref(dr.anchor),anchor_short:dr?.anchor,side_quest:dr?.side_quest,anchor_desc:dr?.anchor.replace(/^PR #\d+\s*/,''),flag_time:w&&hm(M(w.flag_at)),side_quest_short:dr?.side_quest.split(' ').pop().toLowerCase(),
   stamp_ctx:st&&ref(st.context),stamp_detail:st?.flags.map(f=>f.detail).slice(0,2).join('; ')};
- $('#lanes').innerHTML=d.lanes.map(l=>`<div class="lane" id="lane-${l}"><span class="lbl"><i class="dot" style="background:var(--lane-${l})"></i>${LBL[l]}</span></div>`).join('');
+ $('#lanes').innerHTML=[...d.lanes,'attention'].map(l=>`<div class="lane" id="lane-${l}"><span class="lbl"><i class="dot" style="background:var(--lane-${l})"></i>${LBL[l]}</span></div>`).join('');
  let ax='';for(let m=T0;m<=T1;m+=30)ax+=`<span style="left:${pct(m)}">${hm(m)}</span>`;$('#axis').innerHTML=ax;
  $('#scrub').max=T1-T0;$('#scrub').step=1;
  const n=C.nudge;$('#nTitle').textContent=fill(n.title);$('#nBody').textContent=fill(n.body);$('#nBack').textContent=fill(n.back);$('#nKeep').textContent=fill(n.keep);$('#nLater').textContent=fill(n.later);$('#nFine').textContent=fill(n.fine);
@@ -226,6 +229,14 @@ function render(){if(!R)return;const now=T0+t,back=mode==='with'&&choice==='back
  $('#stage').querySelectorAll('.tick').forEach(n=>n.remove());
  for(const[m,a,b]of ticks){const d=document.createElement('div');d.className='tick';d.style.left=`calc(110px + (100% - 110px) * ${(m-T0)/(T1-T0)})`;
   const lo=Math.min(a,b),hi=Math.max(a,b);d.style.top=(10+lo*52+20)+'px';d.style.height=Math.max(12,(hi-lo)*52)+'px';d.style.bottom='auto';$('#stage').appendChild(d);}
+ // attention lane (simulated fixture; with Vespera after Back the protected block is simulated code review)
+ const AS=(back&&R.attention.with)||R.attention.without,lane=$('#lane-attention');let ah='';
+ for(const g of AS){const a=M(g.start),b=Math.min(M(g.end),now);if(a>=now)continue;ah+=`<div class="att ${g.category}${g.simulated?' sim':''}" title="${g.category}${g.simulated?' (simulated refocus)':''} ${hm(a)}–${hm(M(g.end))}" style="left:${pct(a)};width:${(b-a)/(T1-T0)*100}%;background-color:var(--att-${g.category})"></div>`;}
+ if(lane._h!==ah){lane.querySelectorAll('.att').forEach(n=>n.remove());lane.insertAdjacentHTML('beforeend',ah);lane._h=ah;}
+ const ch=[],drE=R.without.drift[0]&&M(R.without.drift[0].end);
+ if(mode==='with'&&flag&&now>=flag&&R.attention.flag_phrase)ch.push(`<span class="chip v">at the nudge: ${R.attention.flag_phrase}</span>`);
+ if(!back&&drE&&now>=drE){ch.push(`<span class="chip">side-quest ${R.attention.drift_phrase}</span>`);const w=R.attention.windows.find(x=>x.flagged);if(w)ch.push(`<span class="chip w">${w.text}</span>`);}
+ const chs=ch.join(' ');if($('#attchips')._h!==chs){$('#attchips').innerHTML=chs;$('#attchips')._h=chs;}
  // counters
  const cs=(mode==='with'&&back?R.with:R.without).counters.filter(c=>M(c.ts)<=now).pop()||{switches:0,reviewed:0,stamped:0,drift:0};
  const dr=R.without.drift[0];let live=cs.drift;if(dr&&now>=M(dr.start)){const stop=back?flag:M(dr.end);live=Math.max(live,Math.round(Math.min(now,stop)-M(dr.start)));}

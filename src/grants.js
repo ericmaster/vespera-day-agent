@@ -1,6 +1,6 @@
 // Source-grant model: the user decides, per source, what the agent may read.
 // Default: everything OFF. Nothing is readable until explicitly granted.
-export const SOURCE_KINDS = ['repo', 'email', 'chat', 'agent-transcript', 'ramblings', 'calendar', 'tasks'];
+export const SOURCE_KINDS = ['repo', 'email', 'chat', 'agent-transcript', 'ramblings', 'calendar', 'tasks', 'attention'];
 
 export function createGrants(sources) {
   const granted = new Map(sources.map((s) => [s.id, false]));

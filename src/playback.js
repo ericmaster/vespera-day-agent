@@ -1,6 +1,31 @@
 // Pure replay builder for the demo UI: turns the fixture day into lanes, attention (dwell) and two
 // scripted modes. Every number comes from computeDay / detectDrift / reviewFlags; nothing is invented.
 import { computeDay, detectDrift, reviewFlags, DRIFT_MIN } from './metrics.js';
+import { attentionSegments, aggregate, phrase, reviewWindows } from './adapters/attention.js';
+const ATT = ['attention:window', 'attention:web', 'attention:afk'], SIG = ['window', 'web', 'afk'];
+
+// Replay attention lane: the SIMULATED fixture, as if all three signals were opted in. With Vespera, after the
+// refocus the protected block is simulated as code review (labelled simulated), so later spans are replaced.
+export function replayAttention(ev, flag, blockEnd, segments = attentionSegments()) {
+  const strip = (s) => ({ start: s.start, end: s.end, category: s.category, signal: s.signal });
+  const without = segments.map(strip);
+  const d = detectDrift(ev, null)[0];
+  const out = { simulated: true, without, drift_phrase: d ? phrase(aggregate(segments, d.start, d.end, SIG), 'social_video') : null,
+    windows: reviewWindows(ev, segments, ATT).map(({ text, flagged, kind, context }) => ({ text, flagged, kind, context })) };
+  if (flag) {
+    const cut = (s, a, b) => ({ ...s, start: a, end: b });
+    const w = [];
+    for (const s of without) {
+      if (s.end <= flag.at || s.start >= blockEnd) { w.push(s); continue; }
+      if (s.start < flag.at) w.push(cut(s, s.start, flag.at));
+      if (s.end > blockEnd) w.push(cut(s, blockEnd, s.end));
+    }
+    w.push({ start: flag.at, end: blockEnd, category: 'code_review', signal: 'web', simulated: true });
+    w.sort((a, b) => a.start.localeCompare(b.start));
+    out.with = w; out.flag_phrase = phrase(aggregate(segments, flag.drift.start, flag.at, SIG));
+  }
+  return out;
+}
 
 export const LANES = ['chat', 'email', 'github', 'agent', 'calendar'];
 export const laneOf = (sourceId) => ({ 'chat:team': 'chat', 'email:work': 'email', 'github:repo': 'github', 'github:live': 'github', 'agent:coding-sessions': 'agent', 'calendar:main': 'calendar' })[sourceId] || 'chat';
@@ -64,5 +89,6 @@ export function buildReplay(dayEvents, calendar = [], { grants, driftMinutes = D
   const resumed = (list) => { const d = base.drift[0]; return d ? list.find((e) => e.context === d.anchor && e.ts > d.start)?.ts || null : null; };
   without.anchor_resumed_at = resumed(ev);
   if (withV) withV.anchor_resumed_at = withV.flag_at;
-  return { day, start: ev[0].ts, end, lanes: LANES, events, calendar: cal, without, with: withV, threshold: driftMinutes };
+  const attention = replayAttention(ev, flag, withV?.block.end);
+  return { attention, day, start: ev[0].ts, end, lanes: LANES, events, calendar: cal, without, with: withV, threshold: driftMinutes };
 }

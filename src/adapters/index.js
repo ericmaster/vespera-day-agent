@@ -5,6 +5,7 @@ import { readText } from '../files.js';
 import { join } from 'node:path';
 import { githubItems } from './github.js';
 import { liveEvents } from './github-live.js';
+import { attentionSegments, attentionStatus, LABEL } from './attention.js';
 
 const F = (p) => join(process.env.FIXTURES_DIR || 'fixtures', p);
 export const json = (p) => JSON.parse(readText(F(p)));
@@ -29,6 +30,13 @@ export const adapters = [
     items: (st) => readText(F('agent-session.md')).split(/\n(?=## )/).map((t, i) => ({ id: `agent-${i}`, source_id: 'agent:coding-sessions', title: t.split('\n')[0].replace(/^#+\s*/, ''), ts: null, text: t })).concat(dayFor('agent:coding-sessions', st)) },
   { id: 'notes:ramblings', kind: 'ramblings', label: 'Voice/text brain-dumps',
     items: (st) => [...fixtureNotes(), ...(st ? st.notes : [])] },
+  // Tier-1 attention, opt-in per signal, off by default. Category-only spans; no titles or URLs exist here.
+  ...[['attention:window', 'window', 'Foreground app class (editor, chat, email, AI session…)'], ['attention:web', 'web', 'Browser tab class (code review, video, …)'], ['attention:afk', 'afk', 'Away from keyboard (idle input)']]
+    .map(([id, sig, label]) => ({ id, kind: 'attention', label: `${label}: ${process.env.AW_URL ? 'local ActivityWatch' : 'SIMULATED fixture'}, category only`,
+      items: (st) => attentionSegments().filter((s) => s.signal === sig && (!st?.now || new Date(s.end) <= new Date(st.now))).map((s) => {
+        const min = Math.round((new Date(s.end) - new Date(s.start)) / 60000);
+        return { id: s.id, source_id: id, ts: s.start, title: `${LABEL[s.category]} ${min} min`, text: `foreground: ${LABEL[s.category]} ${min} min (${s.start.slice(11, 16)}–${s.end.slice(11, 16)}, ${attentionStatus().source})` };
+      }) })),
   { id: 'calendar:main', kind: 'calendar', label: 'Calendar',
     items: (st) => (st ? st.events : json('calendar.json')).map((x) => ({ source_id: 'calendar:main', ...x })) },
   { id: 'tasks:main', kind: 'tasks', label: 'Task list',

@@ -2,6 +2,7 @@
 // computes these; alerts must quote them and the validator checks they match.
 import { json } from './adapters/index.js';
 import { liveEvents } from './adapters/github-live.js';
+import { attentionSegments, reviewWindows, aggregate, grantedSignals } from './adapters/attention.js';
 
 // Fixture day + live GitHub events (empty unless GITHUB_LIVE_REPO is set). Grants filter later.
 export const dayEvents = () => [...json('day.json'), ...liveEvents()];
@@ -79,8 +80,12 @@ export function computeDay(events, grantedIds, now, { driftMinutes = DRIFT_MIN }
   }).map((it) => ({ ...it, facts: itemFacts(items[it.context].events) }));
   const count = (s) => list.filter((i) => i.state === s).length;
   const drift = detectDrift(ev, now, driftMinutes);
+  // Tier-1 attention (opt-in, category-only): review windows + foreground mix of each drift. Empty unless granted.
+  const sig = grantedSignals(grantedIds), segs = sig.length ? attentionSegments() : [];
+  const attention = sig.length ? reviewWindows(ev, segs, grantedIds) : [];
+  const attention_drift = sig.length ? drift.map((d) => ({ trigger_event: d.trigger_event, ...aggregate(segs, d.start, d.end, sig) })) : [];
   return {
-    now: now || null, timeline, switches_per_hour: perHour, items: list, drift,
+    now: now || null, timeline, switches_per_hour: perHour, items: list, drift, attention, attention_drift,
     metrics: {
       switches_total: switches,
       switches_max_per_hour: Math.max(0, ...Object.values(perHour)),

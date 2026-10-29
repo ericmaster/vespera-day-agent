@@ -67,6 +67,15 @@ export function runOffline(tb, { log = () => {} } = {}) {
         'Leave at least one review comment or an explicit LGTM note with what you checked', 'Re-run the change against one real input'].filter(Boolean);
       call('propose_change', { type: 'create_task', summary: `Verification checklist for ${i.context}`, payload: { title: `Verify: ${i.context}`, checklist }, evidence: [quote(i.review_flags[0].evidence)] }); made++;
     }
+    // Tier-1 attention (only if granted): review windows where code review was a small share of the foreground.
+    const off = (day.attention || []).filter((w) => w.flagged);
+    if (off.length) {
+      const da = (day.attention_drift || []).find((a) => a.minutes_by_category.social_video && day.drift.some((d) => d.trigger_event === a.trigger_event));
+      const vid = da ? ` During the side-quest: foreground: video ${da.minutes_by_category.social_video} of ${da.span_min} min (${da.confidence}).` : '';
+      call('propose_change', { type: 'alert', summary: `Review window with little code review: ${off.map((w) => w.context).join('; ')}`,
+        payload: { metric: 'review_window_off_task', value: off.length, message: off.map((w) => w.text).join(' | ') + vid + ' Foreground is not attention; you decide.' },
+        evidence: [...off.map((w) => quote(w.evidence[0])), ...(da ? [quote(da.trigger_event)] : [])] }); made++;
+    }
     for (const x of INTRADAY) {
       if (!x.needs.every((n) => granted.includes(n)) || !x.events.every((e) => visible.has(e))) { skipped++; continue; }
       const v = x.metric ? day.metrics[x.metric] : undefined;

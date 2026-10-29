@@ -18,7 +18,7 @@ button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);f
 .ok{color:var(--vespera)}.rej{color:var(--muted);text-decoration:line-through}#sync{font-size:.7rem}
 </style></head><body><div class="w">
 <div class="hd"><b>Vespera</b><span id="sync">standalone</span><span id="clock">--:--</span></div>
-<div class="box"><div class="lbl">Anchor task</div><div id="anchor">—</div><div class="s fine" id="anchorsub"></div></div>
+<div class="box"><div class="lbl">Anchor task</div><div id="anchor">—</div><div class="s fine" id="anchorsub"></div><div id="att" class="fine" style="margin-top:.3rem;color:var(--switch)"></div></div>
 <div class="box blk" id="blk" style="display:none"><div class="lbl">Protected block</div><b id="cd"></b> <span class="fine" id="blkt"></span></div>
 <div class="box" id="card"><h3 id="cT"></h3><p id="cB"></p><button class="pri" data-c="back">Back</button> <button data-c="park">Park and go back</button> <button data-c="not_drift">Not drift</button>
 <div class="fine" style="margin-top:.4rem">Only you see this. <span id="cWhy"></span></div></div>
@@ -42,7 +42,7 @@ async function pull(){if(busy)return;busy=true;try{const u=`/api/widget?t=${enco
 setInterval(pull,400);
 function render(w){$('#clock').textContent=w.clock;$('#sync').textContent=Date.now()-lastTick<1500?'● synced to replay':'standalone';
  $('#anchor').textContent=w.anchor?'Review '+w.anchor.context:'No anchor set yet';$('#anchorsub').textContent=w.anchor?`since ${w.anchor.since} · evidence ${w.anchor.evidence}`:(w.vespera_on?'':'Vespera off in this replay (without mode)');
- $('#blk').style.display=w.block?'block':'none';if(w.block){$('#cd').textContent=w.block.remaining_min+' min';$('#blkt').innerHTML=`left · ${w.block.start}–${w.block.end} · other notifications held <span class="mock">mock</span>`;}
+ $('#att').textContent=w.attention?`${w.attention.text} since ${w.attention.since} · simulated`:'';$('#blk').style.display=w.block?'block':'none';if(w.block){$('#cd').textContent=w.block.remaining_min+' min';$('#blkt').innerHTML=`left · ${w.block.start}–${w.block.end} · other notifications held <span class="mock">mock</span>`;}
  const c=$('#cap');c.className='cap '+w.capture.state;c.querySelector('span').textContent=({active:'capturing',paused:'paused',unknown:'unknown'})[w.capture.state]+': '+w.capture.label;$('#pause').textContent=paused?'Resume':'Pause';
  // nudge: once per drift id; OS notification if granted, else in-widget card
  const n=w.nudge;if(n&&!shown.has(n.id)){shown.add(n.id);save();notify(n);}

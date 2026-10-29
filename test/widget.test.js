@@ -37,3 +37,9 @@ test('rubber-stamp proposal from reviewFlags; Slack draft approved stays mock no
   const s = at('11:58', { choice: 'back', decisions: { 'slack:status': 'approved' } }).proposals.find((p) => p.id === 'slack:status');
   assert.equal(s.delivery, 'mock: not sent'); assert.equal(s.mock, true);
 });
+test('widget attention chip: foreground mix since the anchor, category only', () => {
+  assert.equal(at('12:12').attention.text, 'foreground: editor 15, video 9 of 37 min (observed)');
+  assert.match(at('12:12', { mode: 'with', choice: 'back' }).attention.text, /code review 22, editor 8 of 37 min/);
+  assert.equal(at('11:00').attention, null);
+  assert.equal(at('12:00', { paused: true }).attention, null);
+});

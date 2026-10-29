@@ -33,7 +33,8 @@ export function makeToolbox(grants, store, state = createState()) {
     tasks: grants.isGranted(taskId) ? byId(taskId).items(state) : [],
     grantedIds: grants.grantedIds(),
     now: state.now,
-    ...((day) => ({ day, metrics: day.metrics, detectorEvidence: {
+    ...((day) => ({ day, metrics: { ...day.metrics, review_window_off_task: day.attention.filter((w) => w.flagged).length }, detectorEvidence: {
+      review_window_off_task: day.attention.filter((w) => w.flagged).flatMap((w) => w.evidence),
       drift_minutes_max: day.drift.map((d) => d.trigger_event),
       rubber_stamp_reviews: day.items.flatMap((i) => (i.state === 'rubber_stamp' ? i.review_flags.map((f) => f.evidence) : [])),
     } }))(computeDay(dayEvents(), grants.grantedIds(), state.now)),

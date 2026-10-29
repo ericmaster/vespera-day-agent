@@ -1,5 +1,6 @@
 // Pure widget state at a replay time t (MVP increment 1 of docs/research/DELIVERY-AND-ATTENTION.md).
 // Input is buildReplay() output; every number comes from the detectors. Mocked parts are flagged mock:true.
+import { aggregate, phrase } from './adapters/attention.js';
 const ms = (iso) => new Date(iso).getTime();
 const ref = (c) => (String(c).match(/PR #\d+/) || [c])[0];
 const hm = (iso) => { const d = new Date(ms(iso) - 5 * 3600e3); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
@@ -33,5 +34,13 @@ export function widgetState(replay, t, { mode = 'with', choice = null, paused = 
     proposals.push({ id: 'slack:status', type: 'team_status_draft', mock: true, title: `Slack status: "Reviewing ${ref(W.anchor)} until ${hm(W.block.end)}"`, why: { detector: 'none (your one-click draft)', rules: ['never sent automatically'], evidence: [] } });
   }
   for (const p of proposals) { p.status = decisions[p.id] || 'pending'; if (p.type === 'team_status_draft' && p.status === 'approved') p.delivery = 'mock: not sent'; }
-  return { t, clock: hm(t), mode, vespera_on: on, capture, anchor, block, nudge, proposals };
+  // Tier-1 foreground (SIMULATED fixture in the replay): mix since the anchor started, category only.
+  let attention = null;
+  if (a && !paused && replay.attention) {
+    const segs = (back && replay.attention.with) || replay.attention.without;
+    const agg = aggregate(segs, a.ts, t, ['window', 'web', 'afk']);
+    attention = { since: hm(a.ts), text: phrase(agg), confidence: agg.confidence, simulated: true };
+  }
+  if (capture.state === 'active' && replay.attention) capture.label += ' + foreground class (simulated)';
+  return { attention, t, clock: hm(t), mode, vespera_on: on, capture, anchor, block, nudge, proposals };
 }

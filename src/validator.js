@@ -6,7 +6,7 @@ const localHHMM = (iso) => iso.slice(11, 16); // ISO with explicit local offset,
 
 export const PROPOSAL_TYPES = ['create_task', 'schedule_block', 'move_event', 'decline_event', 'set_deadline', 'link_evidence', 'alert', 'team_status_draft'];
 // Guardrail: workflow framing only. Any proposal text with health/wellness language is rejected.
-export const BANNED = /\b(burn ?out|stress\w*|wellness|wellbeing|well-being|health\w*|mental|anxi\w+|tired|exhaust\w*|fatigue|sleep\w*|mood|feel(ing)?s?)\b/i;
+export const BANNED = /\b(burn ?out|stress\w*|wellness|wellbeing|well-being|health\w*|mental|anxi\w+|tired|exhaust\w*|fatigue|sleep\w*|mood|feel(ing)?s?|distract\w*|procrastinat\w*|lazy|laziness|slack(ing|er)\s+off|slacker|addict\w*|unfocused|unproductive|undisciplined|wast(ed|ing)\s+time|time[- ]?wast\w*|careless|negligen\w*)\b/i;
 
 // Numbers in an alert's free text must match the cited drift/items (or the day metrics).
 // Checked: "N min", "N lines", "N s", "#N", "N switches". Mismatch -> reject with the reason.
@@ -18,8 +18,11 @@ export function checkAlertNumbers(p, day) {
   const byMetric = { rubber_stamp_reviews: (i) => i.state === 'rubber_stamp', closed_without_review: (i) => i.state === 'closed_without_review', review_backlog: (i) => i.review_requested && i.state === 'open' };
   const items = day.items.filter((i) => i.evidence.some((x) => ids.has(x)) || byMetric[metric]?.(i)
     || drifts.some((d) => d.anchor === i.context || d.side_quest === i.context));
+  // Attention (tier 1): minutes come from the aggregated windows/drift spans the alert cites.
+  const wins = (day.attention || []).filter((w) => w.evidence.some((x) => ids.has(x)));
+  const aggs = [...wins, ...(day.attention_drift || []).filter((a) => drifts.some((d) => d.trigger_event === a.trigger_event))];
   const allow = {
-    min: new Set([...drifts.map((d) => d.minutes), ...(drifts.length ? [] : [m.drift_minutes_max])]),
+    min: new Set([...drifts.map((d) => d.minutes), ...(drifts.length ? [] : [m.drift_minutes_max]), ...aggs.flatMap((a) => [a.span_min, ...Object.values(a.minutes_by_category)])]),
     lines: new Set(items.flatMap((i) => i.facts.lines)),
     // Review seconds, plus the rule's own minimum (1 min per 100 lines) for each cited diff.
     s: new Set(items.flatMap((i) => [...i.facts.seconds, ...i.facts.lines.map((l) => Math.round((60 * l) / 100))])),
@@ -29,6 +32,13 @@ export function checkAlertNumbers(p, day) {
   const text = `${p.summary || ''} ${p.payload?.message || ''}`.replace(/\b1\s*min(?:ute)?\s*(?:\/|per)\s*100\s*lines\b/gi, ''), errors = [];
   const chk = (re, key, label) => { for (const x of text.matchAll(re)) { const n = Number(x[1]); if (!allow[key].has(n)) errors.push(`text says ${label.replace('N', n)} but cited evidence has ${[...allow[key]].join('/') || 'none'}`); } };
   chk(/\b(\d+)\s*(?:min|minutes)\b/gi, 'min', 'N min');
+  // "X of Y min (confidence)": the pair and the label must match one cited aggregate exactly.
+  for (const x of text.matchAll(/\b(\d+)\s+of\s+(\d+)\s*min(?:utes)?(?:[^()]*\((observed|partial|unknown)\))?/gi)) {
+    const [a, b, conf] = [Number(x[1]), Number(x[2]), x[3]?.toLowerCase()];
+    const hit = aggs.find((g) => g.span_min === b && Object.values(g.minutes_by_category).includes(a));
+    if (!hit) errors.push(`text says ${a} of ${b} min but no cited attention span has that`);
+    else if (conf && conf !== hit.confidence) errors.push(`text says (${conf}) but the cited span is ${hit.confidence}`);
+  }
   chk(/\b(\d+)\s*lines\b/gi, 'lines', 'N lines');
   chk(/\b(\d+)\s*(?:s|sec|seconds)\b/gi, 's', 'N s');
   chk(/#(\d+)/g, 'ref', '#N');

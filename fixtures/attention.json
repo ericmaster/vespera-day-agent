@@ -1,0 +1,202 @@
+{
+ "_note": "SIMULATED fixture for the demo Friday. Category-only foreground spans as if aggregated locally from ActivityWatch (window/afk/web watchers). No titles, URLs or content. Gaps = no signal (unknown): 08:30-08:35, 10:18-10:20, 11:05-11:20.",
+ "simulated": true,
+ "segments": [
+  {
+   "id": "att01",
+   "start": "2026-10-30T08:35:00-05:00",
+   "end": "2026-10-30T08:50:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att02",
+   "start": "2026-10-30T08:50:00-05:00",
+   "end": "2026-10-30T08:55:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att03",
+   "start": "2026-10-30T08:55:00-05:00",
+   "end": "2026-10-30T09:00:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att04",
+   "start": "2026-10-30T09:00:00-05:00",
+   "end": "2026-10-30T09:30:00-05:00",
+   "category": "other",
+   "signal": "window"
+  },
+  {
+   "id": "att05",
+   "start": "2026-10-30T09:30:00-05:00",
+   "end": "2026-10-30T09:38:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att06",
+   "start": "2026-10-30T09:38:00-05:00",
+   "end": "2026-10-30T09:44:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att07",
+   "start": "2026-10-30T09:44:00-05:00",
+   "end": "2026-10-30T09:50:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att08",
+   "start": "2026-10-30T09:50:00-05:00",
+   "end": "2026-10-30T09:55:00-05:00",
+   "category": "email",
+   "signal": "window"
+  },
+  {
+   "id": "att09",
+   "start": "2026-10-30T09:55:00-05:00",
+   "end": "2026-10-30T10:02:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att10",
+   "start": "2026-10-30T10:02:00-05:00",
+   "end": "2026-10-30T10:10:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att11",
+   "start": "2026-10-30T10:10:00-05:00",
+   "end": "2026-10-30T10:18:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att12",
+   "start": "2026-10-30T10:20:00-05:00",
+   "end": "2026-10-30T10:22:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att13",
+   "start": "2026-10-30T10:22:00-05:00",
+   "end": "2026-10-30T10:30:00-05:00",
+   "category": "afk",
+   "signal": "afk"
+  },
+  {
+   "id": "att14",
+   "start": "2026-10-30T10:30:00-05:00",
+   "end": "2026-10-30T10:41:00-05:00",
+   "category": "email",
+   "signal": "window"
+  },
+  {
+   "id": "att15",
+   "start": "2026-10-30T10:41:00-05:00",
+   "end": "2026-10-30T10:48:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att16",
+   "start": "2026-10-30T10:48:00-05:00",
+   "end": "2026-10-30T10:55:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att17",
+   "start": "2026-10-30T10:55:00-05:00",
+   "end": "2026-10-30T11:05:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att18",
+   "start": "2026-10-30T11:20:00-05:00",
+   "end": "2026-10-30T11:22:00-05:00",
+   "category": "email",
+   "signal": "window"
+  },
+  {
+   "id": "att19",
+   "start": "2026-10-30T11:22:00-05:00",
+   "end": "2026-10-30T11:27:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att20",
+   "start": "2026-10-30T11:27:00-05:00",
+   "end": "2026-10-30T11:29:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att21",
+   "start": "2026-10-30T11:29:00-05:00",
+   "end": "2026-10-30T11:35:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att22",
+   "start": "2026-10-30T11:35:00-05:00",
+   "end": "2026-10-30T11:41:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  },
+  {
+   "id": "att23",
+   "start": "2026-10-30T11:41:00-05:00",
+   "end": "2026-10-30T11:48:00-05:00",
+   "category": "ai_session",
+   "signal": "window"
+  },
+  {
+   "id": "att24",
+   "start": "2026-10-30T11:48:00-05:00",
+   "end": "2026-10-30T11:58:00-05:00",
+   "category": "editor",
+   "signal": "window"
+  },
+  {
+   "id": "att25",
+   "start": "2026-10-30T11:58:00-05:00",
+   "end": "2026-10-30T12:07:00-05:00",
+   "category": "social_video",
+   "signal": "web"
+  },
+  {
+   "id": "att26",
+   "start": "2026-10-30T12:07:00-05:00",
+   "end": "2026-10-30T12:12:00-05:00",
+   "category": "editor",
+   "signal": "window"
+  },
+  {
+   "id": "att27",
+   "start": "2026-10-30T12:12:00-05:00",
+   "end": "2026-10-30T12:15:00-05:00",
+   "category": "chat",
+   "signal": "window"
+  },
+  {
+   "id": "att28",
+   "start": "2026-10-30T12:15:00-05:00",
+   "end": "2026-10-30T12:30:00-05:00",
+   "category": "code_review",
+   "signal": "web"
+  }
+ ]
+}
