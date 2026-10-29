@@ -4,7 +4,9 @@ const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h *
 const overlaps = (a, b) => new Date(a.start) < new Date(b.end) && new Date(b.start) < new Date(a.end);
 const localHHMM = (iso) => iso.slice(11, 16); // ISO with explicit local offset, e.g. 2026-10-30T10:00:00-05:00
 
-export const PROPOSAL_TYPES = ['create_task', 'schedule_block', 'move_event', 'decline_event', 'set_deadline', 'link_evidence'];
+export const PROPOSAL_TYPES = ['create_task', 'schedule_block', 'move_event', 'decline_event', 'set_deadline', 'link_evidence', 'alert', 'team_status_draft'];
+// Guardrail: workflow framing only. Any proposal text with health/wellness language is rejected.
+export const BANNED = /\b(burn ?out|stress\w*|wellness|wellbeing|well-being|health\w*|mental|anxi\w+|tired|exhaust\w*|fatigue|sleep\w*|mood|feel(ing)?s?)\b/i;
 
 export function validateProposal(p, ctx) {
   const errors = [];
@@ -16,6 +18,16 @@ export function validateProposal(p, ctx) {
     if (!e.item_id || typeof e.quote !== 'string' || !e.quote.trim()) errors.push('evidence needs item_id and quote');
   }
   const pl = p.payload || {};
+  const words = `${p.summary || ''} ${JSON.stringify(pl)}`.match(BANNED);
+  if (words) errors.push(`out-of-scope language "${words[0]}": workflow framing only`);
+  if (p.type === 'alert') {
+    const m = ctx.metrics || {};
+    if (!(pl.metric in m)) errors.push(`unknown metric ${pl.metric}`);
+    else if (pl.value !== m[pl.metric]) errors.push(`metric ${pl.metric} is ${m[pl.metric]}, not ${pl.value}`);
+    if (!pl.message) errors.push('message required');
+  }
+  if (p.type === 'team_status_draft' && (!pl.text || !pl.channel)) errors.push('channel and text required');
+  if ((p.type === 'schedule_block' || p.type === 'move_event') && ctx.now && pl.start && new Date(pl.start) < new Date(ctx.now)) errors.push('block starts before now');
   if (p.type === 'schedule_block' || p.type === 'move_event') {
     if (!pl.start || !pl.end) errors.push('start and end required');
     else {

@@ -3,15 +3,21 @@
 import { json } from './adapters/index.js';
 import { validateProposal } from './validator.js';
 
+export const DEFAULT_NOW = '2026-10-30T11:30:00-05:00';
+
 export function createState() {
-  return { events: json('calendar.json'), tasks: json('tasks.json'), notes: [], applied: [], log: [] };
+  return { events: json('calendar.json'), tasks: json('tasks.json'), notes: [], applied: [], log: [], alerts: [], drafts: [], now: process.env.DAY_NOW || DEFAULT_NOW };
 }
 
 export function applyProposal(state, p) {
   const pl = p.payload;
   switch (p.type) {
     case 'schedule_block':
-      state.events.push({ id: `ev-${p.id}`, title: pl.title, start: pl.start, end: pl.end, fixed: false, from_proposal: p.id }); break;
+      state.events.push({ id: `ev-${p.id}`, title: pl.title, start: pl.start, end: pl.end, fixed: false, no_interrupt: !!pl.no_interrupt, from_proposal: p.id }); break;
+    case 'alert':
+      state.alerts.push({ id: p.id, ...pl, evidence: p.evidence }); break;
+    case 'team_status_draft':
+      state.drafts.push({ id: p.id, ...pl, sent: false }); break; // never sent: copy it yourself
     case 'move_event': {
       const ev = state.events.find((e) => e.id === pl.event_id); ev.start = pl.start; ev.end = pl.end; break;
     }

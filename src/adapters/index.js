@@ -7,19 +7,23 @@ import { githubItems } from './github.js';
 
 const F = (p) => join(process.env.FIXTURES_DIR || 'fixtures', p);
 export const json = (p) => JSON.parse(readFileSync(F(p), 'utf8'));
+// Intraday activity (fixtures/day.json) is split back into its own source, so consent still applies per source.
+// With a state, only events up to the simulated clock (state.now) are visible.
+const dayFor = (id, st) => json('day.json').filter((e) => e.source_id === id && (!st?.now || new Date(e.ts) <= new Date(st.now)))
+  .map((e) => ({ id: e.id, source_id: id, ts: e.ts, title: `${e.context} (${e.action})`, text: e.text }));
 const fixtureNotes = () => readFileSync(F('ramblings.txt'), 'utf8').split(/\n\s*\n/).map((t, i) => ({ id: `note-${i}`, source_id: 'notes:ramblings', title: t.slice(0, 50), ts: null, text: t.trim() }));
 
 export const adapters = [
   { id: 'repo:orbit-api', kind: 'repo', label: 'Local git repo: orbit-api (commits, TODOs, issues)',
     items: () => json('repo.json').map((x, i) => ({ id: `repo-${i}`, source_id: 'repo:orbit-api', ...x })) },
   { id: 'github:repo', kind: 'repo', label: `GitHub (read-only via gh)${process.env.GITHUB_REPO ? ': ' + process.env.GITHUB_REPO : ', fixture fallback'}`,
-    items: () => githubItems() },
+    items: (st) => [...githubItems(), ...dayFor('github:repo', st)] },
   { id: 'email:work', kind: 'email', label: 'Work email (fixture inbox)',
-    items: () => json('emails.json').map((x, i) => ({ id: `mail-${i}`, source_id: 'email:work', title: x.subject, ts: x.date, text: `From: ${x.from}\n${x.body}` })) },
+    items: (st) => json('emails.json').map((x, i) => ({ id: `mail-${i}`, source_id: 'email:work', title: x.subject, ts: x.date, text: `From: ${x.from}\n${x.body}` })).concat(dayFor('email:work', st)) },
   { id: 'chat:team', kind: 'chat', label: 'Team chat export',
-    items: () => json('chat.json').map((x, i) => ({ id: `chat-${i}`, source_id: 'chat:team', title: `${x.user} in #${x.channel}`, ts: x.ts, text: x.text })) },
+    items: (st) => json('chat.json').map((x, i) => ({ id: `chat-${i}`, source_id: 'chat:team', title: `${x.user} in #${x.channel}`, ts: x.ts, text: x.text })).concat(dayFor('chat:team', st)) },
   { id: 'agent:coding-sessions', kind: 'agent-transcript', label: 'Coding-agent session transcripts',
-    items: () => readFileSync(F('agent-session.md'), 'utf8').split(/\n(?=## )/).map((t, i) => ({ id: `agent-${i}`, source_id: 'agent:coding-sessions', title: t.split('\n')[0].replace(/^#+\s*/, ''), ts: null, text: t })) },
+    items: (st) => readFileSync(F('agent-session.md'), 'utf8').split(/\n(?=## )/).map((t, i) => ({ id: `agent-${i}`, source_id: 'agent:coding-sessions', title: t.split('\n')[0].replace(/^#+\s*/, ''), ts: null, text: t })).concat(dayFor('agent:coding-sessions', st)) },
   { id: 'notes:ramblings', kind: 'ramblings', label: 'Voice/text brain-dumps',
     items: (st) => [...fixtureNotes(), ...(st ? st.notes : [])] },
   { id: 'calendar:main', kind: 'calendar', label: 'Calendar',

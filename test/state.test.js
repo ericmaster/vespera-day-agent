@@ -14,10 +14,12 @@ const setup = (ids = adapters.map((a) => a.id)) => {
   return { g, store, state, tb: makeToolbox(g, store, state) };
 };
 
-test('offline agent: block overlapping the optional demo is invalid until decline is approved', () => {
+test('block overlapping the optional demo is invalid until decline is approved', () => {
   const { store, state, tb } = setup();
-  runOffline(tb);
-  assert.equal(store.length, 5);
+  state.now = '2026-10-30T08:00:00-05:00';
+  const ev = [{ source_id: 'chat:team', item_id: 'chat-1', quote: "yes, I'll get it merged by Friday noon" }];
+  tb.propose_change({ type: 'decline_event', summary: 'skip demo', payload: { event_id: 'ev2', reason: 'limiter' }, evidence: ev });
+  tb.propose_change({ type: 'schedule_block', summary: 'limiter', payload: { title: 'Finish + merge rate limiter', start: '2026-10-30T09:30:00-05:00', end: '2026-10-30T11:30:00-05:00' }, evidence: ev });
   const [decline, block] = store;
   assert.equal(block.status, 'invalid');
   assert.ok(block.validation.errors.some((e) => e.includes('Vendor demo')));
@@ -43,7 +45,7 @@ test('applied block makes a later overlapping proposal invalid', () => {
 test('create_task and set_deadline update local tasks; move_event updates calendar', () => {
   const { store, state, tb } = setup();
   runOffline(tb);
-  approve(store, 'p3', state, tb.ctx); approve(store, 'p5', state, tb.ctx);
+  approve(store, 'p1', state, tb.ctx); approve(store, 'p3', state, tb.ctx);
   assert.ok(state.tasks.find((t) => t.title.startsWith('Billing migration')));
   assert.equal(state.tasks.find((t) => t.id === 't2').deadline, '2026-11-04T12:00:00-05:00');
   const ev = [{ source_id: 'chat:team', item_id: 'chat-1', quote: 'merged by Friday noon' }];
@@ -56,7 +58,7 @@ test('offline agent only proposes from granted sources', () => {
   const { store, tb } = setup(['email:work']);
   const r = runOffline(tb);
   assert.equal(store.length, 1);
-  assert.match(r.summary, /skipped 4/);
+  assert.match(r.summary, /skipped 6/);
 });
 
 test('consent log records reads and blocks non-granted attempts', () => {

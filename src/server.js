@@ -7,6 +7,7 @@ import { createGrants } from './grants.js';
 import { runAgent, isOffline } from './agent.js';
 import { makeToolbox } from './tools.js';
 import { createState, approve, revalidate } from './state.js';
+import { computeDay, dayEvents } from './metrics.js';
 import { transcribeWav, addNote } from './transcribe.js';
 
 const grants = createGrants(adapters);
@@ -25,8 +26,9 @@ createServer(async (req, res) => {
     if (M === 'GET' && pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(readFileSync('public/index.html')); }
     if (M === 'GET' && pathname === '/api/sources') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey, offline: isOffline() });
     if (M === 'POST' && pathname === '/api/grants') { const { id, granted } = await body(req); grants.set(id, granted); state.log.push({ at: new Date().toISOString(), tool: 'user:grant', source_id: id, allowed: true, note: granted ? 'granted by user' : 'revoked by user' }); revalidate(proposals, tb().ctx()); return send(res, 200, grants.list()); }
-    if (M === 'GET' && pathname === '/api/state') return send(res, 200, { proposals, events: state.events, tasks: state.tasks, notes: state.notes, applied: state.applied, log: state.log });
+    if (M === 'GET' && pathname === '/api/state') return send(res, 200, { proposals, events: state.events, tasks: state.tasks, notes: state.notes, applied: state.applied, log: state.log, alerts: state.alerts, drafts: state.drafts, now: state.now, day: computeDay(dayEvents(), grants.grantedIds(), state.now) });
     if (M === 'POST' && pathname === '/api/reset') { state = createState(); proposals = []; return send(res, 200, { ok: true }); }
+    if (M === 'POST' && pathname === '/api/clock') { const { now } = await body(req); if (isNaN(new Date(now))) return send(res, 400, { error: 'bad time' }); state.now = now; revalidate(proposals, tb().ctx()); return send(res, 200, { now }); }
     if (M === 'POST' && pathname === '/api/run') {
       proposals.splice(0); const trace = [];
       const r = await runAgent(grants, proposals, { log: (l) => trace.push(l), state });

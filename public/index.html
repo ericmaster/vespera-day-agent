@@ -6,17 +6,21 @@ blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color
 #mode{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-weight:600}.off{background:#ffe9b3}.on{background:#d6f5df}
 table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px solid #eee;padding:.2rem}pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}</style></head><body>
 <h1>Vespera Day Agent <span id="mode"></span></h1>
-<p>You choose which sources the agent may read. Every proposed change shows its evidence and passes a deterministic validator. Nothing happens without your approval, and nothing is sent outside this app.</p>
+<p><b>It doesn't measure your hours, it measures whether you got to review.</b> You grant each source; the data stays yours. Every alert and change shows its evidence, passes a deterministic validator, and waits for your approval. Nothing is sent.</p>
+<div class="card" id="kpi"></div>
+<p>Simulated clock: <select id="clock"></select> <button id="check">Check now</button></p>
+<h2>Context-switch timeline (granted sources only)</h2><div id="timeline" style="font-size:.8rem;max-height:220px;overflow:auto"></div>
 <div class="grid"><div>
 <h2>1. Grant sources</h2><div id="sources"></div>
 <h2>2. Brain-dump (voice or text)</h2>
 <button id="rec">● Record</button> <input type="file" id="file" accept="audio/*"> <span id="vstatus"></span>
 <textarea id="paste" rows="3" style="width:100%" placeholder="…or paste/type a transcript"></textarea><button id="savenote">Save note</button>
 <div id="notes"></div>
-<h2>3. Run agent</h2><button id="run">Plan my days</button> <button id="reset">Reset demo</button> <span id="status"></span><p id="summary"></p>
+<h2>3. Run agent</h2><button id="run">Run agent</button> <button id="reset">Reset demo</button> <span id="status"></span><p id="summary"></p>
 <h2>4. Review proposals</h2><div id="proposals"></div>
 </div><div>
 <h2>Consent log</h2><table id="log"></table>
+<h2>Drafts (never sent)</h2><div id="drafts"></div>
 <h2>Calendar (local)</h2><div id="events"></div>
 <h2>Tasks (local)</h2><div id="tasks"></div>
 </div></div>
@@ -34,8 +38,12 @@ async function refresh(){const s=await api('/api/state');
  ${p.validation.errors.length?`<p class="blocked">Validator: ${esc(p.validation.errors.join('; '))}</p>`:''}
  ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';
  $('#log').innerHTML=s.log.slice().reverse().map(l=>`<tr class="${l.allowed?'':'blocked'}"><td>${new Date(l.at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'})}</td><td>${l.tool}</td><td>${l.source_id||'—'}</td><td>${l.allowed?'allowed':'⚠ '+esc(l.note)}</td></tr>`).join('')||'<tr><td><i>no tool calls yet</i></td></tr>';
- $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.from_proposal?' ✨':''}</div>`).join('');
+ $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.no_interrupt?' 🚫 no interruptions':''}${e.from_proposal?' ✨':''}</div>`).join('');
  $('#tasks').innerHTML=s.tasks.map(x=>`<div>☐ ${esc(x.title)}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
+ const d=s.day,m=d.metrics;
+ $('#kpi').innerHTML=`<span style="font-size:2rem;font-weight:700">${m.closed_with_review}/${m.opened}</span> items <b>closed with proper review</b> · ${m.closed_without_review} closed without review/tests · review backlog ${m.review_backlog} · ${m.switches_total} context switches (max ${m.switches_max_per_hour}/h) <small>as of ${t(s.now)}</small>`;
+ $('#timeline').innerHTML=d.timeline.map(e=>`<div>${e.switch?'↯':'·'} ${t(e.ts).split(', ').pop()} <b>${esc(e.context)}</b> <small>${e.source_id} · ${e.action} · ${e.id}</small></div>`).join('')||'<i>grant chat, email, agent sessions or GitHub to see the timeline</i>';
+ $('#drafts').innerHTML=s.drafts.map(x=>`<div class="card"><small>${esc(x.channel)} · draft, not sent</small><br>${esc(x.text)}</div>`).join('')||'<i>none</i>';
  $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
 async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
 $('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)`;$('#summary').textContent=r.summary||'';refresh();};
@@ -53,5 +61,8 @@ let rec;$('#rec').onclick=async()=>{if(rec?.state==='recording'){rec.stop();retu
  const st=await navigator.mediaDevices.getUserMedia({audio:true});const chunks=[];rec=new MediaRecorder(st);rec.ondataavailable=e=>chunks.push(e.data);
  rec.onstop=()=>{st.getTracks().forEach(x=>x.stop());$('#rec').textContent='● Record';sendAudio(new Blob(chunks));};rec.start();$('#rec').textContent='■ Stop';};
 $('#file').onchange=e=>e.target.files[0]&&sendAudio(e.target.files[0]);
+['09:30','10:30','11:30','12:30'].forEach(h=>$('#clock').insertAdjacentHTML('beforeend',`<option ${h==='11:30'?'selected':''}>${h}</option>`));
+$('#clock').onchange=async()=>{await api('/api/clock',{now:`2026-10-30T${$('#clock').value}:00-05:00`});refresh();};
+$('#check').onclick=async()=>{await $('#clock').onchange();$('#run').onclick();};
 loadSources();refresh();
 </script></body></html>
