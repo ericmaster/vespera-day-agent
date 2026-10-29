@@ -28,11 +28,11 @@ header h1{font-size:1.1rem;margin:0}.tabs button,.ctl button,.ctl select{backgro
 .tick{position:absolute;width:2px;background:var(--switch);opacity:.85;z-index:2;top:0;bottom:1.4rem}
 #playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--fg);z-index:4}
 .axis{position:relative;margin-left:110px;height:1rem;font-size:.7rem;color:var(--muted)}.axis span{position:absolute;transform:translateX(-50%)}
-.row{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:.6rem;margin:.8rem 0}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
-.kpi b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}.kpi small{color:var(--muted)}#ctx b{font-size:1rem}
-#nudge{position:absolute;right:24px;top:30px;width:360px;background:#0E1116;border:2px solid var(--vespera);border-radius:12px;padding:1rem;z-index:10;animation:pulse 1.6s ease-in-out infinite;display:none}
+.row{display:grid;grid-template-columns:1.3fr 1.2fr .8fr 1fr 1fr;gap:.6rem;margin:.8rem 0}.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
+.kpi.hero{border-color:var(--deliberate)}.kpi.hero b{font-size:2.2rem}.kpi.sec b{font-size:1.2rem;color:var(--muted)}.tag.white{background:var(--deliberate);color:#0E1116}.kpi b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}.kpi small{color:var(--muted)}#ctx b{font-size:1rem}
+#nudge{position:relative;margin:.8rem 0 0 auto;width:460px;background:#0E1116;border:2px solid var(--vespera);border-radius:12px;padding:1rem;z-index:10;animation:pulse 1.6s ease-in-out infinite;display:none}
 #nudge h3{margin:.1rem 0 .4rem}#nudge p{margin:.3rem 0;color:#C9D1D9}#nudge button{margin:.25rem .3rem 0 0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.35rem .6rem;font:inherit;cursor:pointer}
-#nudge button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);font-weight:600}#nudge .fine{font-size:.72rem;color:var(--muted)}
+#nudge button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);font-weight:600}#nudge .fine{font-size:.85rem;color:var(--muted)}
 #summary{display:none}.cmp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.7rem 1rem;margin:.6rem 0}.cmp.with{border-color:var(--vespera)}
 .cmp h3{margin:.1rem 0 .5rem;font-size:1rem}.cmp .g{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}.cmp .g div b{display:block;font-size:1.4rem}.cmp small{color:var(--muted)}
 #closing{font-size:1.4rem;font-weight:600;text-align:center;margin:1rem}#evinfo{font-size:.8rem;color:var(--muted);min-height:1.2rem;margin-top:.4rem}
@@ -43,15 +43,15 @@ header h1{font-size:1.1rem;margin:0}.tabs button,.ctl button,.ctl select{backgro
 // BEATS / COPY: marketing can swap captions here. {placeholders} are filled from detector outputs only.
 window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
  beats:[
-  {when:'start',text:'Friday. Four agents, one dev.'},
+  {when:'start',text:'Friday. One dev, four streams, everything pinging.'},
   {when:'switch:3',text:'Every switch costs a little.'},
   {when:'event:d26',mode:'without',text:'Approved. Not reviewed.',freezeMs:2500},
   {when:'event:d26',mode:'with',text:'{stamp_ctx}: flagged at approval: {stamp_detail}.'},
   {when:'event:d29',text:'An AI remark: "want me to refactor it?"'},
   {when:'drift',mode:'without',text:'{drift_minutes} minutes. Not the task you planned.'},
-  {when:'flag',mode:'with',text:'Minute {threshold}: Vespera notices.'},
+  {when:'flag',mode:'with',text:'{flag_time} — {threshold} minutes into a {side_quest_short} nobody planned.'},
   {when:'end',text:"It doesn't measure your hours. It measures whether you got to review."}],
- nudge:{title:"You've drifted into the {side_quest_short}.",body:'{anchor_short} is still waiting for a real review. Want 20 quiet minutes for it?',back:'Back to {anchor_ref}',keep:'Keep refactoring',later:'Remind me later',fine:'Only you see this.'}};
+ nudge:{title:"You've drifted into the {side_quest_short}.",body:'{anchor_ref} ({anchor_desc}) still needs a real review. Want 20 quiet minutes for it?',back:'Back to {anchor_ref}',keep:'Keep refactoring',later:'Remind me later',fine:'Only you see this.'}};
 </script></head><body>
 <header><h1>Vespera Day Agent</h1><div class="tabs"><button id="tabReplay" class="on">Replay the day</button> <button id="tabLive">Live agent</button></div><span id="modebadge"></span></header>
 <main><section id="replay">
@@ -60,11 +60,11 @@ window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
 <span id="clockbig">08:35</span><input type="range" id="scrub" min=0 max=100 value=0 step=1></div>
 <div id="caption"></div>
 <div class="row"><div class="kpi" id="ctx"><small>Current context</small><b>—</b><small id="ctxsrc"></small></div>
-<div class="kpi"><small>Context switches</small><b id="kSw">0</b></div><div class="kpi"><small>Closed with real review</small><b id="kRev">0</b></div>
+<div class="kpi hero"><small>Closed with real review</small><b id="kRev">0</b></div><div class="kpi sec"><small>Context switches</small><b id="kSw">0</b></div>
 <div class="kpi"><small id="kStL">Rubber-stamped</small><b id="kSt">0</b></div><div class="kpi"><small>Drift (min)</small><b id="kDr">0</b></div></div>
 <div class="stage" id="stage"><div id="lanes"></div><div class="axis" id="axis"></div><div id="playhead"></div>
-<div id="nudge"><h3 id="nTitle"></h3><p id="nBody"></p><button class="pri" id="nBack"></button><button id="nKeep"></button><button id="nLater"></button><p class="fine" id="nFine"></p></div></div>
-<div id="evinfo"></div>
+</div>
+<div id="nudge"><h3 id="nTitle"></h3><p id="nBody"></p><button class="pri" id="nBack"></button><button id="nKeep"></button><button id="nLater"></button><p class="fine" id="nFine"></p></div><div id="evinfo"></div>
 <div id="summary"><div class="cmp" id="cmpWithout"></div><div class="cmp with" id="cmpWith"></div><div id="closing"></div></div>
 </section>
 <section id="live">
@@ -147,7 +147,7 @@ function setCap(s){const c=$('#caption');c.style.opacity=0;setTimeout(()=>{c.tex
 const ref=a=>(a.match(/PR #\d+/)||[a])[0];
 fetch('/api/replay').then(r=>r.json()).then(d=>{R=d;T0=Math.floor(M(d.start)/30)*30;T1=Math.ceil(M(d.end)/30)*30;
  const dr=d.without.drift[0],st=d.without.stamps[0],w=d.with;
- V={drift_minutes:dr?.minutes,threshold:d.threshold,anchor:dr?.anchor,anchor_ref:dr&&ref(dr.anchor),anchor_short:dr?.anchor,side_quest:dr?.side_quest,side_quest_short:dr?.side_quest.split(' ').pop().toLowerCase(),
+ V={drift_minutes:dr?.minutes,threshold:d.threshold,anchor:dr?.anchor,anchor_ref:dr&&ref(dr.anchor),anchor_short:dr?.anchor,side_quest:dr?.side_quest,anchor_desc:dr?.anchor.replace(/^PR #\d+\s*/,''),flag_time:w&&hm(M(w.flag_at)),side_quest_short:dr?.side_quest.split(' ').pop().toLowerCase(),
   stamp_ctx:st&&ref(st.context),stamp_detail:st?.flags.map(f=>f.detail).slice(0,2).join('; ')};
  $('#lanes').innerHTML=d.lanes.map(l=>`<div class="lane" id="lane-${l}"><span class="lbl"><i class="dot" style="background:var(--lane-${l})"></i>${LBL[l]}</span></div>`).join('');
  let ax='';for(let m=T0;m<=T1;m+=30)ax+=`<span style="left:${pct(m)}">${hm(m)}</span>`;$('#axis').innerHTML=ax;
@@ -160,7 +160,7 @@ fetch('/api/replay').then(r=>r.json()).then(d=>{R=d;T0=Math.floor(M(d.start)/30)
  if(Q.get('summary'))showSummary();
  render();requestAnimationFrame(loop);});
 function setMode(m){mode=m;choice=null;fired=new Set();t=0;endAt=0;Object.values(els).forEach(e=>e.remove());els={};$('#nudge').style.display='none';$('#summary').style.display='none';
- $('#modebadge').textContent=m==='with'?'With Vespera · simulated refocus':'Without Vespera';$('#modebadge').className=m;$('#kStL').textContent=m==='with'?'Rubber-stamps flagged':'Rubber-stamped (passed silently)';playing=true;}
+ $('#modebadge').textContent=m==='with'?'With Vespera · simulated refocus':'Without Vespera';$('#modebadge').className=m;$('#kStL').textContent=m==='with'?'Approvals without review (flagged)':'Approvals without review (passed silently)';playing=true;}
 function seek(x){t=Math.max(0,Math.min(T1-T0,x));const now=T0+t;fired=new Set(C.beats.filter(b=>beatAt(b)!=null&&beatAt(b)<now).map(b=>C.beats.indexOf(b)));
  if(mode==='with'){const f=M(R.with.flag_at);if(now<f){choice=null;$('#nudge').style.display='none'}else if(!choice)choice='back';}
  for(const[id,e]of Object.entries(els)){if(+e.dataset.m>now){e.remove();delete els[id]}}}
@@ -198,7 +198,7 @@ function render(){if(!R)return;const now=T0+t,back=mode==='with'&&choice==='back
   let cls='ev',tag='';const isDrift=dIds.has(x.id)&&x.context!==anchor;
   if(parked)cls+=' parked';else if(isDrift&&!back)cls+=' drift';
   if(stampIds.has(x.id)){if(mode==='with'){cls+=' vflag';tag='<span class="tag teal">flagged: no CI run</span>'}else{cls+=' stamp';tag='<span class="tag red">tests: not run</span>'}}
-  else if(x.simulated||(x.action==='approved')||(x.context===anchor&&x.action==='work'&&m>M(R.without.drift[0]?.start||0)))cls+=' deliberate';
+  else if(x.action==='approved'){cls+=' deliberate';tag=`<span class="tag white">${ref(x.context)} real review ✓</span>`}else if(x.simulated||(x.context===anchor&&x.action==='work'&&m>M(R.without.drift[0]?.start||0)))cls+=' deliberate';
   e.className=cls;let endM=m+x.dwell;if(back&&isDrift)endM=Math.min(endM,flag);if(x.simulated)endM=M(R.with.block.end);
   const w=Math.max(0,Math.min(endM,now)-m);e.style.left=pct(m);e.style.width=`max(4px, ${w/(T1-T0)*100}%)`;
   e.style.background=`var(--lane-${x.lane})`;e.style.opacity=.45+Math.min(.55,x.dwell/30);// attention: longer dwell = more solid
@@ -217,12 +217,12 @@ function showSummary(){const W=R.without,Wi=R.with,dr=W.drift[0];if(!Wi)return;
  $('#cmpWithout').innerHTML=g('Without Vespera · detector output on fixtures/day.json','',[
   ['Longest drift',W.metrics.drift_minutes_max+' min',`${dr.side_quest}, trigger ${dr.trigger} (${dr.trigger_event})`],
   ['Back on '+ref(dr.anchor),hm(M(W.anchor_resumed_at)),'after a chat ping'],
-  ['Rubber-stamps',W.metrics.rubber_stamp_reviews,'passed silently: '+W.stamps.map(s=>ref(s.context)).join(', ')],
+  ['Approvals without review',W.metrics.rubber_stamp_reviews,'passed silently: '+W.stamps.map(s=>ref(s.context)).join(', ')],
   ['Closed with real review',W.metrics.closed_with_review+'/'+W.metrics.opened],['Context switches',W.metrics.switches_total]]);
  $('#cmpWith').innerHTML=g('With Vespera · simulated refocus at the detector flag ('+hm(M(Wi.flag_at))+', threshold '+Wi.threshold+' min)','',[
   ['Longest drift',Wi.metrics.drift_minutes_max+' min','side-quest parked: '+Wi.parked.join(', ')],
   ['Back on '+ref(Wi.anchor),hm(M(Wi.anchor_resumed_at)),'20-min protected review block'],
-  ['Rubber-stamps',Wi.metrics.rubber_stamp_reviews,'flagged at approval: '+Wi.stamps_flagged.map(ref).join(', ')],
+  ['Approvals without review',Wi.metrics.rubber_stamp_reviews,'flagged at approval: '+Wi.stamps_flagged.map(ref).join(', ')],
   ['Closed with real review',Wi.metrics.closed_with_review+'/'+Wi.metrics.opened,'simulated'],['Context switches',Wi.metrics.switches_total,'simulated']]);
  $('#closing').textContent=fill(C.beats.find(b=>b.when==='end').text);$('#summary').style.display='block';}
 $('#play').onclick=()=>{playing=!playing;if(playing&&t>=T1-T0)seek(0);$('#play').textContent=playing?'❚❚':'▶';};
