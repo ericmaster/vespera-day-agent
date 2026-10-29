@@ -22,20 +22,6 @@ const INTRADAY = [
   { needs: ['github:repo', 'agent:coding-sessions'], events: ['d13', 'd19'], type: 'alert', metric: 'closed_without_review',
     summary: (v) => `${v} item(s) closed without review or tests`,
     evidence: [{ source_id: 'github:repo', item_id: 'd13', quote: 'merged by dana without review comments; CI skipped' }, { source_id: 'agent:coding-sessions', item_id: 'd19', quote: 'closed with tests not run' }] },
-  { needs: ['agent:coding-sessions', 'chat:team'], events: ['d29', 'd32'], type: 'alert', metric: 'drift_minutes_max',
-    summary: (v) => `Task drift: ${v} min on "Session middleware refactor" while PR #44 review was the assigned task; triggered by an AI remark`,
-    evidence: [{ source_id: 'agent:coding-sessions', item_id: 'd29', quote: 'want me to refactor it?' }, { source_id: 'chat:team', item_id: 'd03', quote: 'can you review PR #44 today?' }] },
-  { needs: ['agent:coding-sessions', 'chat:team', 'tasks:main'], events: ['d29'], type: 'create_task',
-    summary: () => 'Park the side-quest and return to the PR #44 review',
-    payload: { title: 'Parked: refactor session middleware crypto API (side-quest from PR #44 review)', parked: true },
-    evidence: [{ source_id: 'agent:coding-sessions', item_id: 'd29', quote: 'the session middleware uses a deprecated crypto API' }] },
-  { needs: ['github:repo', 'agent:coding-sessions'], events: ['d24', 'd26'], type: 'alert', metric: 'rubber_stamp_reviews',
-    summary: (v) => `${v} review(s) marked done without review evidence: PR #47, 800 lines approved in 40 s, agent claimed tests pass, no CI log`,
-    evidence: [{ source_id: 'github:repo', item_id: 'd26', quote: 'approved by dana after 40 s: 0 comments, 0 of 23 files viewed' }, { source_id: 'agent:coding-sessions', item_id: 'd24', quote: 'all tests pass' }] },
-  { needs: ['github:repo', 'tasks:main'], events: ['d27'], type: 'create_task',
-    summary: () => 'Verification checklist for PR #47 before it ships',
-    payload: { title: 'Verify PR #47 billing export', checklist: ['Run CI and attach the log', 'Open all 23 changed files', 'Leave at least one review comment or an explicit LGTM note', 'Spot-check the CSV output against one real invoice'] },
-    evidence: [{ source_id: 'github:repo', item_id: 'd27', quote: 'no CI run attached' }] },
   { needs: ['chat:team', 'calendar:main'], events: ['d21'], type: 'schedule_block',
     summary: () => 'Heads-down review + testing block: PR #44, PR #46, run tests for PR #43 (no interruptions)',
     payload: { title: 'Heads-down: review #44, #46 + test #43', start: '2026-10-30T13:00:00-05:00', end: '2026-10-30T15:00:00-05:00', no_interrupt: true },
@@ -58,6 +44,29 @@ export function runOffline(tb, { log = () => {} } = {}) {
   if (granted.some((g) => ['chat:team', 'github:repo', 'email:work', 'agent:coding-sessions'].includes(g))) {
     const day = call('get_day_metrics');
     const visible = new Set(day.timeline.map((e) => e.id));
+    // Detector-driven proposals (fixture or live GitHub): cite the detector's own evidence events.
+    const quote = (id) => { const e = day.timeline.find((x) => x.id === id); return { source_id: e.source_id, item_id: id, quote: e.text.slice(0, 80) }; };
+    const top = [...day.drift].sort((a, b) => b.minutes - a.minutes)[0];
+    if (top) {
+      call('propose_change', { type: 'alert', summary: `Task drift: ${top.minutes} min on "${top.side_quest}" while "${top.anchor}" was the assigned task (trigger: ${top.trigger})`,
+        payload: { metric: 'drift_minutes_max', value: day.metrics.drift_minutes_max, message: `Return to "${top.anchor}"; park "${top.side_quest}".` }, evidence: [quote(top.trigger_event)] }); made++;
+    }
+    for (const d of day.drift) if (granted.includes('tasks:main')) {
+      call('propose_change', { type: 'create_task', summary: `Park the side-quest and return to "${d.anchor}"`,
+        payload: { title: `Parked: ${d.side_quest} (side-quest from ${d.anchor})`, parked: true }, evidence: [quote(d.trigger_event)] }); made++;
+    }
+    const stamped = day.items.filter((i) => i.state === 'rubber_stamp');
+    if (stamped.length) {
+      call('propose_change', { type: 'alert', summary: `${stamped.length} review(s) marked done without review evidence: ${stamped.map((i) => i.context).join('; ')}`,
+        payload: { metric: 'rubber_stamp_reviews', value: day.metrics.rubber_stamp_reviews, message: stamped.map((i) => `${i.context}: ${i.review_flags.map((f) => f.detail).join(', ')}`).join(' | ') },
+        evidence: stamped.map((i) => quote(i.review_flags[0].evidence)) }); made++;
+    }
+    for (const i of stamped) if (granted.includes('tasks:main')) {
+      const rules = new Set(i.review_flags.map((f) => f.rule));
+      const checklist = [rules.has('no_ci') || rules.has('unverified_claim') ? 'Run CI and attach the log' : null, rules.has('no_review_activity') || rules.has('too_fast') ? 'Open every changed file and mark it viewed' : null,
+        'Leave at least one review comment or an explicit LGTM note with what you checked', 'Re-run the change against one real input'].filter(Boolean);
+      call('propose_change', { type: 'create_task', summary: `Verification checklist for ${i.context}`, payload: { title: `Verify: ${i.context}`, checklist }, evidence: [quote(i.review_flags[0].evidence)] }); made++;
+    }
     for (const x of INTRADAY) {
       if (!x.needs.every((n) => granted.includes(n)) || !x.events.every((e) => visible.has(e))) { skipped++; continue; }
       const v = x.metric ? day.metrics[x.metric] : undefined;

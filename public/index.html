@@ -7,7 +7,7 @@ blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color
 table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px solid #eee;padding:.2rem}pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}</style></head><body>
 <h1>Vespera Day Agent <span id="mode"></span></h1>
 <p><b>It doesn't measure your hours, it measures whether you got to review.</b> You grant each source; the data stays yours. Every alert and change shows its evidence, passes a deterministic validator, and waits for your approval. Nothing is sent.</p>
-<div class="card" id="kpi"></div>
+<div class="card" id="kpi"></div><p id="gh" style="font-size:.85rem"></p>
 <p>Simulated clock: <select id="clock"></select> <button id="check">Check now</button></p>
 <div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><b>Task drift</b><div id="drift"></div></div><div class="card"><b>Review evidence</b><div id="rstamp"></div></div></div>
 <div class="card" id="eod"></div>
@@ -31,7 +31,8 @@ const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>
 const api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
 const t=iso=>iso?new Date(iso).toLocaleString('en-US',{timeZone:'America/Bogota',weekday:'short',hour:'2-digit',minute:'2-digit'}):'';
 async function loadSources(){const d=await api('/api/sources');const m=$('#mode');m.className=d.offline?'off':'on';
- m.textContent=d.offline?'OFFLINE MODE · scripted agent, no model call':`LIVE · ${d.model}`;
+ m.textContent=d.offline?'OFFLINE FALLBACK · scripted agent, no model call':`LIVE · ${d.model}`;
+ $('#gh').innerHTML=d.github.repo?`GitHub live: <a href="https://github.com/${d.github.repo}" target=_blank>${d.github.repo}</a> · ${d.github.events??'…'} events${d.github.error?' · <span class=blocked>'+esc(d.github.error)+'</span>':''} <button onclick="api('/api/github/refresh',{}).then(()=>{loadSources();refresh()})">Refresh</button>`:'GitHub live: off (set GITHUB_LIVE_REPO)';
  $('#sources').innerHTML=d.sources.map(s=>`<label class="card" style="display:block"><input type="checkbox" data-id="${s.id}" ${s.granted?'checked':''}> <b>${s.kind}</b> ${esc(s.label)}</label>`).join('');
  document.querySelectorAll('[data-id]').forEach(c=>c.onchange=async()=>{await api('/api/grants',{id:c.dataset.id,granted:c.checked});refresh();});}
 async function refresh(){const s=await api('/api/state');
@@ -44,7 +45,7 @@ async function refresh(){const s=await api('/api/state');
  $('#tasks').innerHTML=s.tasks.map(x=>`<div>☐ ${esc(x.title)}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
  const d=s.day,m=d.metrics;
  $('#kpi').innerHTML=`<span style="font-size:2rem;font-weight:700">${m.closed_with_review}/${m.opened}</span> items <b>closed with proper review</b> · ${m.rubber_stamp_reviews} rubber-stamped · ${m.closed_without_review} closed without review/tests · review backlog ${m.review_backlog} · ${m.switches_total} context switches (max ${m.switches_max_per_hour}/h) <small>as of ${t(s.now)}</small>`;
- $('#timeline').innerHTML=d.timeline.map(e=>`<div>${e.switch?'↯':'·'} ${t(e.ts).split(', ').pop()} <b>${esc(e.context)}</b> <small>${e.source_id} · ${e.action} · ${e.id}</small></div>`).join('')||'<i>grant chat, email, agent sessions or GitHub to see the timeline</i>';
+ $('#timeline').innerHTML=d.timeline.map(e=>`<div>${e.switch?'↯':'·'} ${t(e.ts)} <b>${esc(e.context)}</b> <small>${e.source_id==='github:live'?'<b>LIVE</b> ':''}${e.source_id} · ${e.action} · ${e.id}${e.trigger?' · trigger: '+e.trigger:''}</small></div>`).join('')||'<i>grant chat, email, agent sessions or GitHub to see the timeline</i>';
  $('#drift').innerHTML=d.drift.map(x=>`<p>↪ <b>${x.minutes} min</b> on <i>${esc(x.side_quest)}</i> while assigned <b>${esc(x.anchor)}</b> (evidence ${x.anchor_evidence.join(', ')})<br><small>trigger: ${x.trigger} · ${x.trigger_event} · ${t(x.start).split(', ').pop()}–${t(x.end).split(', ').pop()}</small></p>`).join('')||'<i>no drift ≥ threshold</i>';
  $('#rstamp').innerHTML=d.items.filter(i=>i.review_flags).map(i=>`<p><b>${esc(i.context)}</b>: ${i.state==='rubber_stamp'?'<span class="blocked">marked reviewed, evidence missing</span>':'✔ review evidence present'}${i.review_flags.map(f=>`<br><small>✘ ${f.rule}: ${esc(f.detail)} (${f.evidence})</small>`).join('')}</p>`).join('')||'<i>no closed reviews yet</i>';
  const b=s.baseline?.metrics, ap=s.applied;
@@ -52,7 +53,7 @@ async function refresh(){const s=await api('/api/state');
  $('#drafts').innerHTML=s.drafts.map(x=>`<div class="card"><small>${esc(x.channel)} · draft, not sent</small><br>${esc(x.text)}</div>`).join('')||'<i>none</i>';
  $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
 async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
-$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)`;$('#summary').textContent=r.summary||'';refresh();};
+$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)${r.fallback?' · model failed, OFFLINE FALLBACK used: '+r.fallback:''}`;$('#summary').textContent=r.summary||'';refresh();};
 $('#reset').onclick=async()=>{await api('/api/reset',{});$('#summary').textContent='';refresh();};
 $('#savenote').onclick=async()=>{const r=await api('/api/voice',{text:$('#paste').value});if(r.error)alert(r.error);else $('#paste').value='';refresh();};
 // Audio -> mono 16-bit PCM WAV @16 kHz (what Muse Voice Transcribe accepts), done in the browser.

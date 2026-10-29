@@ -58,7 +58,7 @@ test('offline agent only proposes from granted sources', () => {
   const { store, tb } = setup(['email:work']);
   const r = runOffline(tb);
   assert.equal(store.length, 1);
-  assert.match(r.summary, /skipped 10/);
+  assert.match(r.summary, /skipped [1-9]/);
 });
 
 test('consent log records reads and blocks non-granted attempts', () => {

@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { githubItems } from './github.js';
+import { liveEvents } from './github-live.js';
 
 const F = (p) => join(process.env.FIXTURES_DIR || 'fixtures', p);
 export const json = (p) => JSON.parse(readFileSync(F(p), 'utf8'));
@@ -18,6 +19,8 @@ export const adapters = [
     items: () => json('repo.json').map((x, i) => ({ id: `repo-${i}`, source_id: 'repo:orbit-api', ...x })) },
   { id: 'github:repo', kind: 'repo', label: `GitHub (read-only via gh)${process.env.GITHUB_REPO ? ': ' + process.env.GITHUB_REPO : ', fixture fallback'}`,
     items: (st) => [...githubItems(), ...dayFor('github:repo', st)] },
+  { id: 'github:live', kind: 'repo', label: `GitHub LIVE, read-only: ${process.env.GITHUB_LIVE_REPO || '(set GITHUB_LIVE_REPO)'} (PRs, reviews, CI)`,
+    items: (st) => liveEvents().filter((e) => !st?.now || new Date(e.ts) <= new Date(st.now)).map((e) => ({ id: e.id, source_id: 'github:live', ts: e.ts, title: `${e.context} (${e.action})`, text: e.text })) },
   { id: 'email:work', kind: 'email', label: 'Work email (fixture inbox)',
     items: (st) => json('emails.json').map((x, i) => ({ id: `mail-${i}`, source_id: 'email:work', title: x.subject, ts: x.date, text: `From: ${x.from}\n${x.body}` })).concat(dayFor('email:work', st)) },
   { id: 'chat:team', kind: 'chat', label: 'Team chat export',

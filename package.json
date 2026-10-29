@@ -8,8 +8,12 @@
     "start": "node src/server.js",
     "test": "node --test test/*.test.js",
     "smoke": "node scripts/smoke-tool-call.js",
-    "agent": "node src/agent.js"
+    "agent": "node src/agent.js",
+    "demo": "node scripts/demo.js",
+    "demo:serve": "GITHUB_LIVE_REPO=ericmaster/vda-demo-target node src/server.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }

@@ -28,6 +28,16 @@ export const isOffline = () => !config.apiKey || process.env.OFFLINE === '1';
 export async function runAgent(grants, store, { maxSteps = 24, log = () => {}, state } = {}) {
   const tb = makeToolbox(grants, store, state);
   if (isOffline()) return { ...runOffline(tb, { log }), offline: true, proposals: store };
+  try { return await runLive(tb, store, { maxSteps, log }); }
+  catch (e) {
+    // Fallback, not the default: if the model API fails mid-demo, the scripted agent runs through the
+    // same toolbox and validator, and the UI labels the run as a fallback with the error.
+    store.splice(0);
+    return { ...runOffline(tb, { log }), offline: true, fallback: e.message.slice(0, 200), proposals: store };
+  }
+}
+
+async function runLive(tb, store, { maxSteps, log }) {
   const messages = [{ role: 'system', content: SYSTEM(tb.state.now) }, { role: 'user', content: 'Check now: how is my review quality today, and what should change for the rest of the day?' }];
   for (let step = 0; step < maxSteps; step++) {
     const msg = (await chat(messages, toolSchemas)).choices[0].message;
