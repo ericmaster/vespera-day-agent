@@ -4,42 +4,48 @@ import { readFileSync } from 'node:fs';
 import { config } from './config.js';
 import { adapters } from './adapters/index.js';
 import { createGrants } from './grants.js';
-import { runAgent } from './agent.js';
+import { runAgent, isOffline } from './agent.js';
 import { makeToolbox } from './tools.js';
+import { createState, approve, revalidate } from './state.js';
+import { transcribeWav, addNote } from './transcribe.js';
 
 const grants = createGrants(adapters);
+let state = createState();
 let proposals = [];
-let applied = []; // local, approved changes only. Nothing is written externally.
+const tb = () => makeToolbox(grants, proposals, state);
 
-const body = (req) => new Promise((ok) => { let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => ok(d ? JSON.parse(d) : {})); });
+const raw = (req) => new Promise((ok) => { const c = []; req.on('data', (d) => c.push(d)); req.on('end', () => ok(Buffer.concat(c))); });
+const body = async (req) => { const b = await raw(req); return b.length ? JSON.parse(b) : {}; };
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 
 createServer(async (req, res) => {
   try {
     const { pathname } = new URL(req.url, 'http://x');
-    if (req.method === 'GET' && pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(readFileSync('public/index.html')); }
-    if (pathname === '/api/sources' && req.method === 'GET') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey });
-    if (pathname === '/api/grants' && req.method === 'POST') { const { id, granted } = await body(req); grants.set(id, granted); return send(res, 200, grants.list()); }
-    if (pathname === '/api/proposals' && req.method === 'GET') return send(res, 200, { proposals, applied });
-    if (pathname === '/api/run' && req.method === 'POST') {
-      proposals = []; const trace = [];
-      const r = await runAgent(grants, proposals, { log: (l) => trace.push(l) });
-      return send(res, 200, { summary: r.summary, trace, proposals });
+    const M = req.method;
+    if (M === 'GET' && pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(readFileSync('public/index.html')); }
+    if (M === 'GET' && pathname === '/api/sources') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey, offline: isOffline() });
+    if (M === 'POST' && pathname === '/api/grants') { const { id, granted } = await body(req); grants.set(id, granted); state.log.push({ at: new Date().toISOString(), tool: 'user:grant', source_id: id, allowed: true, note: granted ? 'granted by user' : 'revoked by user' }); revalidate(proposals, tb().ctx()); return send(res, 200, grants.list()); }
+    if (M === 'GET' && pathname === '/api/state') return send(res, 200, { proposals, events: state.events, tasks: state.tasks, notes: state.notes, applied: state.applied, log: state.log });
+    if (M === 'POST' && pathname === '/api/reset') { state = createState(); proposals = []; return send(res, 200, { ok: true }); }
+    if (M === 'POST' && pathname === '/api/run') {
+      proposals.splice(0); const trace = [];
+      const r = await runAgent(grants, proposals, { log: (l) => trace.push(l), state });
+      return send(res, 200, { summary: r.summary, offline: !!r.offline, trace, proposals });
     }
-    if (pathname === '/api/demo-proposal' && req.method === 'POST') {
-      // Exercises the validator without a model call (used before a key exists).
-      const out = makeToolbox(grants, proposals).propose_change(await body(req));
-      return send(res, 200, out);
+    if (M === 'POST' && pathname === '/api/voice') {
+      // audio/wav body -> Muse Voice Transcribe; JSON {text} -> pasted transcript.
+      const isWav = (req.headers['content-type'] || '').startsWith('audio/wav');
+      const text = isWav ? await transcribeWav(await raw(req)) : (await body(req)).text;
+      return send(res, 200, addNote(state, text, isWav ? 'muse-voice-transcribe-1.0' : 'pasted'));
     }
     const m = pathname.match(/^\/api\/proposals\/(\w+)\/(approve|reject)$/);
-    if (m && req.method === 'POST') {
+    if (m && M === 'POST') {
+      if (m[2] === 'approve') { const r = approve(proposals, m[1], state, tb().ctx); return send(res, r.error ? 400 : 200, r); }
       const p = proposals.find((x) => x.id === m[1]);
       if (!p) return send(res, 404, { error: 'not found' });
-      if (m[2] === 'approve' && p.status !== 'pending') return send(res, 400, { error: 'only valid pending proposals can be approved' });
-      p.status = m[2] === 'approve' ? 'approved' : 'rejected';
-      if (p.status === 'approved') applied.push({ id: p.id, type: p.type, payload: p.payload });
-      return send(res, 200, p);
+      p.status = 'rejected';
+      return send(res, 200, { proposal: p });
     }
     send(res, 404, { error: 'not found' });
   } catch (e) { send(res, 500, { error: e.message }); }
-}).listen(config.port, () => console.log(`Vespera Day Agent on http://localhost:${config.port} (model ${config.model}, key ${config.apiKey ? 'configured' : 'missing'})`));
+}).listen(config.port, () => console.log(`Vespera Day Agent on http://localhost:${config.port} (model ${config.model}, ${isOffline() ? 'OFFLINE mode' : 'live'})`));
