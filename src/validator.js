@@ -8,6 +8,34 @@ export const PROPOSAL_TYPES = ['create_task', 'schedule_block', 'move_event', 'd
 // Guardrail: workflow framing only. Any proposal text with health/wellness language is rejected.
 export const BANNED = /\b(burn ?out|stress\w*|wellness|wellbeing|well-being|health\w*|mental|anxi\w+|tired|exhaust\w*|fatigue|sleep\w*|mood|feel(ing)?s?)\b/i;
 
+// Numbers in an alert's free text must match the cited drift/items (or the day metrics).
+// Checked: "N min", "N lines", "N s", "#N", "N switches". Mismatch -> reject with the reason.
+export function checkAlertNumbers(p, day) {
+  if (!day) return [];
+  const ids = new Set((p.evidence || []).map((e) => e.item_id));
+  const m = day.metrics, metric = p.payload?.metric;
+  const drifts = day.drift.filter((d) => ids.has(d.trigger_event) || d.evidence.some((x) => ids.has(x)) || d.anchor_evidence.some((x) => ids.has(x)));
+  const byMetric = { rubber_stamp_reviews: (i) => i.state === 'rubber_stamp', closed_without_review: (i) => i.state === 'closed_without_review', review_backlog: (i) => i.review_requested && i.state === 'open' };
+  const items = day.items.filter((i) => i.evidence.some((x) => ids.has(x)) || byMetric[metric]?.(i)
+    || drifts.some((d) => d.anchor === i.context || d.side_quest === i.context));
+  const allow = {
+    min: new Set([...drifts.map((d) => d.minutes), ...(drifts.length ? [] : [m.drift_minutes_max])]),
+    lines: new Set(items.flatMap((i) => i.facts.lines)),
+    // Review seconds, plus the rule's own minimum (1 min per 100 lines) for each cited diff.
+    s: new Set(items.flatMap((i) => [...i.facts.seconds, ...i.facts.lines.map((l) => Math.round((60 * l) / 100))])),
+    ref: new Set(items.flatMap((i) => i.facts.refs)),
+    switches: new Set([m.switches_total, m.switches_max_per_hour]),
+  };
+  const text = `${p.summary || ''} ${p.payload?.message || ''}`.replace(/\b1\s*min(?:ute)?\s*(?:\/|per)\s*100\s*lines\b/gi, ''), errors = [];
+  const chk = (re, key, label) => { for (const x of text.matchAll(re)) { const n = Number(x[1]); if (!allow[key].has(n)) errors.push(`text says ${label.replace('N', n)} but cited evidence has ${[...allow[key]].join('/') || 'none'}`); } };
+  chk(/\b(\d+)\s*(?:min|minutes)\b/gi, 'min', 'N min');
+  chk(/\b(\d+)\s*lines\b/gi, 'lines', 'N lines');
+  chk(/\b(\d+)\s*(?:s|sec|seconds)\b/gi, 's', 'N s');
+  chk(/#(\d+)/g, 'ref', '#N');
+  chk(/\b(\d+)\s*(?:context\s+)?switch(?:es)?\b/gi, 'switches', 'N switches');
+  return errors;
+}
+
 export function validateProposal(p, ctx) {
   const errors = [];
   const { events = [], tasks = [], grantedIds = [], workingHours = { start: '09:00', end: '18:00' } } = ctx;
@@ -18,6 +46,8 @@ export function validateProposal(p, ctx) {
     if (!e.item_id || typeof e.quote !== 'string' || !e.quote.trim()) errors.push('evidence needs item_id and quote');
   }
   const pl = p.payload || {};
+  // Seen in a live run: the model nested the payload under its type ({create_task:{...}}). Say so, so it retries flat.
+  if (pl[p.type] && typeof pl[p.type] === 'object') errors.push(`payload must be flat, not nested under "${p.type}"`);
   const words = `${p.summary || ''} ${JSON.stringify(pl)}`.match(BANNED);
   if (words) errors.push(`out-of-scope language "${words[0]}": workflow framing only`);
   if (p.type === 'alert') {
@@ -25,6 +55,7 @@ export function validateProposal(p, ctx) {
     if (!(pl.metric in m)) errors.push(`unknown metric ${pl.metric}`);
     else if (pl.value !== m[pl.metric]) errors.push(`metric ${pl.metric} is ${m[pl.metric]}, not ${pl.value}`);
     if (!pl.message) errors.push('message required');
+    errors.push(...checkAlertNumbers(p, ctx.day));
     // Detector alerts must cite the detector's own evidence (drift trigger / review-flag event).
     const need = ctx.detectorEvidence?.[pl.metric];
     if (need && !(p.evidence || []).some((e) => need.includes(e.item_id))) errors.push(`${pl.metric} alert must cite detector evidence (${need.join(', ') || 'none found'})`);

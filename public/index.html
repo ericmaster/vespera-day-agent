@@ -21,7 +21,7 @@ table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px 
 <h2>3. Run agent</h2><button id="run">Run agent</button> <button id="reset">Reset demo</button> <span id="status"></span><p id="summary"></p>
 <h2>4. Review proposals</h2><div id="proposals"></div>
 </div><div>
-<h2>Consent log</h2><table id="log"></table>
+<h2>Consent log</h2><button onclick="api('/api/probe',{id:'notes:ramblings'}).then(refresh)">Test consent: read notes</button><table id="log"></table>
 <h2>Drafts (never sent)</h2><div id="drafts"></div>
 <h2>Calendar (local)</h2><div id="events"></div>
 <h2>Tasks (local)</h2><div id="tasks"></div>
@@ -42,7 +42,7 @@ async function refresh(){const s=await api('/api/state');
  ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';
  $('#log').innerHTML=s.log.slice().reverse().map(l=>`<tr class="${l.allowed?'':'blocked'}"><td>${new Date(l.at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'})}</td><td>${l.tool}</td><td>${l.source_id||'—'}</td><td>${l.allowed?'allowed':'⚠ '+esc(l.note)}</td></tr>`).join('')||'<tr><td><i>no tool calls yet</i></td></tr>';
  $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.no_interrupt?' 🚫 no interruptions':''}${e.from_proposal?' ✨':''}</div>`).join('');
- $('#tasks').innerHTML=s.tasks.map(x=>`<div>☐ ${esc(x.title)}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
+ $('#tasks').innerHTML=s.tasks.map(x=>`<div>${x.parked?'🅿':'☐'} ${esc(x.title)}${x.checklist?' <small>('+x.checklist.length+' checks)</small>':''}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
  const d=s.day,m=d.metrics;
  $('#kpi').innerHTML=`<span style="font-size:2rem;font-weight:700">${m.closed_with_review}/${m.opened}</span> items <b>closed with proper review</b> · ${m.rubber_stamp_reviews} rubber-stamped · ${m.closed_without_review} closed without review/tests · review backlog ${m.review_backlog} · ${m.switches_total} context switches (max ${m.switches_max_per_hour}/h) <small>as of ${t(s.now)}</small>`;
  $('#timeline').innerHTML=d.timeline.map(e=>`<div>${e.switch?'↯':'·'} ${t(e.ts)} <b>${esc(e.context)}</b> <small>${e.source_id==='github:live'?'<b>LIVE</b> ':''}${e.source_id} · ${e.action} · ${e.id}${e.trigger?' · trigger: '+e.trigger:''}</small></div>`).join('')||'<i>grant chat, email, agent sessions or GitHub to see the timeline</i>';

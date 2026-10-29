@@ -83,3 +83,13 @@ test('github adapter falls back to fixtures', async () => {
   assert.equal(items.mode, 'fixture');
   assert.ok(items[0].id === 'gh-0' && items[0].source_id === 'github:repo');
 });
+
+test('approved checklist / parked tasks keep their fields; nested payload is rejected with a reason', () => {
+  const { store, state, tb } = setup();
+  const ev = [{ source_id: 'chat:team', item_id: 'chat-1', quote: 'merged by Friday noon' }];
+  const a = tb.propose_change({ type: 'create_task', summary: 'v', payload: { title: 'Verify', checklist: ['Run CI'] }, evidence: ev });
+  approve(store, a.id, state, tb.ctx);
+  assert.deepEqual(state.tasks.at(-1).checklist, ['Run CI']);
+  const n = tb.propose_change({ type: 'create_task', summary: 'n', payload: { create_task: { title: 'x' } }, evidence: ev });
+  assert.match(n.errors.join(), /must be flat/);
+});

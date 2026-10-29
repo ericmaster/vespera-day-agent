@@ -90,3 +90,31 @@ test('detector alerts must cite detector evidence', () => {
   const ok = tb.propose_change(alert('drift_minutes_max', 31, [{ source_id: 'agent:coding-sessions', item_id: 'd29', quote: 'want me to refactor it?' }]));
   assert.equal(ok.status, 'pending');
 });
+
+// Numbers in alert free text must match the cited drift/items.
+import { readFileSync } from 'node:fs';
+import { mapRepo } from '../src/adapters/github-live.js';
+import { checkAlertNumbers } from '../src/validator.js';
+const liveDay = () => computeDay([...dayEvents(), ...mapRepo('ericmaster/vda-demo-target', JSON.parse(readFileSync('fixtures/github-live-sample.json', 'utf8')))],
+  [...ALL, 'github:live'], LATE);
+const dr = (message, item_id = 'gh-i2') => ({ type: 'alert', summary: 'Task drift', payload: { metric: 'drift_minutes_max', value: 31, message }, evidence: [{ source_id: 'github:live', item_id, quote: 'x' }] });
+test('numbers: "31 min" citing the 17-min drift on #2 is rejected (live run case)', () => {
+  const e = checkAlertNumbers(dr('anchor #1 interrupted by side-quest #2 for up to 31 min max'), liveDay());
+  assert.deepEqual(e, ['text says 31 min but cited evidence has 17']);
+});
+test('numbers: the same alert with 17 min passes; 31 min passes when citing d29', () => {
+  assert.deepEqual(checkAlertNumbers(dr('anchor #1 interrupted by side-quest #2 for 17 min'), liveDay()), []);
+  assert.deepEqual(checkAlertNumbers(dr('31 min on the middleware refactor during PR #44', 'd29'), liveDay()), []);
+});
+test('numbers: wrong line count, seconds and PR number are rejected', () => {
+  const p = { type: 'alert', summary: 'x', payload: { metric: 'rubber_stamp_reviews', value: 2, message: 'PR #48: 900 lines approved in 30 s' }, evidence: [{ source_id: 'github:repo', item_id: 'd26', quote: 'x' }] };
+  const e = checkAlertNumbers(p, liveDay()).join(' | ');
+  assert.match(e, /900 lines/); assert.match(e, /30 s/); assert.match(e, /#48/);
+  p.payload.message = 'PR #47: 800 lines approved in 40 s (rule minimum 480 s at 1 min/100 lines)';
+  assert.deepEqual(checkAlertNumbers(p, liveDay()), []);
+});
+test('numbers: wrong switch count is rejected end to end through propose_change', () => {
+  const tb = makeToolbox(grantAll(), [], createState());
+  const r = tb.propose_change({ type: 'alert', summary: '12 switches in one hour', payload: { metric: 'switches_max_per_hour', value: 9, message: 'too many pings' }, evidence: [{ source_id: 'chat:team', item_id: 'd15', quote: 'pinging again on PR #44' }] });
+  assert.equal(r.status, 'invalid'); assert.match(r.errors.join(), /12 switches/);
+});

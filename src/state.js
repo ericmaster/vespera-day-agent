@@ -24,7 +24,7 @@ export function applyProposal(state, p) {
     case 'decline_event':
       state.events = state.events.filter((e) => e.id !== pl.event_id); break;
     case 'create_task':
-      state.tasks.push({ id: `t-${p.id}`, title: pl.title, text: p.summary || '', deadline: pl.deadline || null, evidence: p.evidence, from_proposal: p.id }); break;
+      state.tasks.push({ id: `t-${p.id}`, title: pl.title, text: p.summary || '', deadline: pl.deadline || null, evidence: p.evidence, from_proposal: p.id, ...(pl.checklist ? { checklist: pl.checklist } : {}), ...(pl.parked ? { parked: true } : {}) }); break;
     case 'set_deadline':
       state.tasks.find((t) => t.id === pl.task_id).deadline = pl.deadline; break;
     case 'link_evidence': {

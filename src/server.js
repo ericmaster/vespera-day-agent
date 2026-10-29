@@ -30,6 +30,8 @@ createServer(async (req, res) => {
     if (M === 'POST' && pathname === '/api/grants') { const { id, granted } = await body(req); grants.set(id, granted); state.log.push({ at: new Date().toISOString(), tool: 'user:grant', source_id: id, allowed: true, note: granted ? 'granted by user' : 'revoked by user' }); revalidate(proposals, tb().ctx()); return send(res, 200, grants.list()); }
     if (M === 'GET' && pathname === '/api/state') return send(res, 200, { proposals, events: state.events, tasks: state.tasks, notes: state.notes, applied: state.applied, log: state.log, alerts: state.alerts, drafts: state.drafts, now: state.now, baseline: state.baseline || null, day: computeDay(dayEvents(), grants.grantedIds(), state.now) });
     if (M === 'POST' && pathname === '/api/reset') { state = createState(); proposals = []; return send(res, 200, { ok: true }); }
+    // Consent probe for the demo: try to read a source; ungranted reads are blocked and logged.
+    if (M === 'POST' && pathname === '/api/probe') { const { id } = await body(req); try { tb().read_source({ source_id: id }); return send(res, 200, { allowed: true }); } catch (e) { return send(res, 200, { allowed: false, error: e.message }); } }
     if (M === 'POST' && pathname === '/api/clock') { const { now } = await body(req); if (isNaN(new Date(now))) return send(res, 400, { error: 'bad time' }); state.now = now; revalidate(proposals, tb().ctx()); return send(res, 200, { now }); }
     if (M === 'POST' && pathname === '/api/run') {
       proposals.splice(0); const trace = [];

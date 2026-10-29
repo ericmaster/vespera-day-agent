@@ -43,6 +43,16 @@ export function detectDrift(ev, now, minMinutes = DRIFT_MIN) {
   return out;
 }
 
+// Numbers an alert may state about an item: line counts, review seconds, #refs in its text.
+const refs = (t) => [...String(t).matchAll(/#(\d+)/g)].map((m) => Number(m[1]));
+function itemFacts(evs) {
+  return {
+    lines: [...new Set(evs.filter((e) => e.lines != null).map((e) => e.lines))],
+    seconds: [...new Set(evs.filter((e) => e.review_seconds != null).map((e) => e.review_seconds))],
+    refs: [...new Set(evs.flatMap((e) => [...refs(e.context), ...refs(e.text)]))],
+  };
+}
+
 export const METRICS = ['switches_total', 'switches_max_per_hour', 'opened', 'closed_with_review', 'closed_without_review', 'rubber_stamp_reviews', 'review_backlog', 'drift_minutes_max'];
 
 export function computeDay(events, grantedIds, now, { driftMinutes = DRIFT_MIN } = {}) {
@@ -66,7 +76,7 @@ export function computeDay(events, grantedIds, now, { driftMinutes = DRIFT_MIN }
     if (it.state !== 'closed_reviewed') return it;
     const flags = reviewFlags(evs);
     return { ...it, state: flags.length ? 'rubber_stamp' : 'closed_with_review', review_flags: flags };
-  });
+  }).map((it) => ({ ...it, facts: itemFacts(items[it.context].events) }));
   const count = (s) => list.filter((i) => i.state === s).length;
   const drift = detectDrift(ev, now, driftMinutes);
   return {
