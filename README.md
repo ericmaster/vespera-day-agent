@@ -28,12 +28,19 @@ grants (per-source on/off) ──► tools: list_granted_sources, read_source,
 ```
 Zero runtime dependencies: Node 20+, `node:http`, `fetch`, `node:test`.
 
+## Day-2 features
+- **Local state that changes as you approve.** Approving a decline, move, focus block, new task or deadline updates the local calendar and task list. Every remaining proposal is checked again against the new state, so one approval can turn another proposal valid or invalid.
+- **Consent log.** The UI lists every tool call, the source it touched, and whether consent allowed it. Reads of sources you have not granted are blocked and shown in red, and so is evidence that cites them.
+- **Voice brain-dump.** Record or upload audio. The browser converts it to 16 kHz mono WAV and the server sends it to Muse Voice Transcribe (`POST /v1/asr/transcribe`, `muse-voice-transcribe-1.0`). Without a key, paste a transcript. Either way it becomes a new item in the notes source.
+- **GitHub source (read-only).** Set `GITHUB_REPO=owner/name`. When you grant the source, it reads open issues and recent commits through `gh`. Off by default. Falls back to `fixtures/github.json`.
+- **Offline mode.** With no `MODEL_API_KEY` (or `OFFLINE=1`), a scripted agent makes the same tool calls over the fixtures, through the same consent checks and validator. The UI labels it OFFLINE MODE.
+
 ## Run
 ```bash
 cp .env.example .env      # put your Meta Model API key in MODEL_API_KEY
 npm test                  # validator + tool tests (no key needed)
 npm run smoke             # one real Muse Spark tool-calling call
-npm start                 # http://localhost:3000
+npm start                 # http://localhost:3000 (offline mode until a key is set)
 ```
 API: base URL `https://api.meta.ai/v1`, header `Authorization: Bearer $MODEL_API_KEY`, model `muse-spark-1.3`.
 

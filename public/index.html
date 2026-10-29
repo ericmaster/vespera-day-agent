@@ -1,22 +1,57 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Vespera Day Agent</title>
-<style>body{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1b1b2f}
-.card{border:1px solid #ddd;border-radius:8px;padding:.8rem;margin:.5rem 0}.invalid{background:#fff3f3}.approved{background:#f0fff3}.rejected{opacity:.5}
-blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}button{margin-right:.4rem}</style></head><body>
-<h1>Vespera Day Agent</h1><p>You choose which sources the agent may read. Every proposed change shows its evidence and passes a deterministic validator. Nothing happens without your approval.</p>
-<h2>1. Grant sources</h2><div id="sources"></div><p id="model"></p>
-<h2>2. Run agent</h2><button id="run">Plan my days</button> <span id="status"></span><p id="summary"></p>
-<h2>3. Review proposals</h2><div id="proposals"></div>
+<style>body{font-family:system-ui;max-width:1100px;margin:1.5rem auto;padding:0 1rem;color:#1b1b2f}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem}.card{border:1px solid #ddd;border-radius:8px;padding:.7rem;margin:.4rem 0}
+.invalid{background:#fff3f3}.approved{background:#f0fff3}.rejected{opacity:.5}.blocked{color:#b00020;font-weight:600}
+blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}button{margin-right:.4rem}
+#mode{display:inline-block;padding:.2rem .6rem;border-radius:99px;font-weight:600}.off{background:#ffe9b3}.on{background:#d6f5df}
+table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px solid #eee;padding:.2rem}pre{white-space:pre-wrap;margin:.3rem 0;font-size:.8rem}</style></head><body>
+<h1>Vespera Day Agent <span id="mode"></span></h1>
+<p>You choose which sources the agent may read. Every proposed change shows its evidence and passes a deterministic validator. Nothing happens without your approval, and nothing is sent outside this app.</p>
+<div class="grid"><div>
+<h2>1. Grant sources</h2><div id="sources"></div>
+<h2>2. Brain-dump (voice or text)</h2>
+<button id="rec">● Record</button> <input type="file" id="file" accept="audio/*"> <span id="vstatus"></span>
+<textarea id="paste" rows="3" style="width:100%" placeholder="…or paste/type a transcript"></textarea><button id="savenote">Save note</button>
+<div id="notes"></div>
+<h2>3. Run agent</h2><button id="run">Plan my days</button> <button id="reset">Reset demo</button> <span id="status"></span><p id="summary"></p>
+<h2>4. Review proposals</h2><div id="proposals"></div>
+</div><div>
+<h2>Consent log</h2><table id="log"></table>
+<h2>Calendar (local)</h2><div id="events"></div>
+<h2>Tasks (local)</h2><div id="tasks"></div>
+</div></div>
 <script>
-const $=s=>document.querySelector(s), api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
-async function loadSources(){const d=await api('/api/sources');$('#model').textContent=`Model: ${d.model} · API key ${d.keyConfigured?'configured':'missing'}`;
- $('#sources').innerHTML=d.sources.map(s=>`<label class="card" style="display:block"><input type="checkbox" data-id="${s.id}" ${s.granted?'checked':''}> <b>${s.kind}</b> ${s.label}</label>`).join('');
- document.querySelectorAll('[data-id]').forEach(c=>c.onchange=()=>api('/api/grants',{id:c.dataset.id,granted:c.checked}));}
-async function loadProposals(){const {proposals}=await api('/api/proposals');$('#proposals').innerHTML=proposals.map(p=>`<div class="card ${p.status}">
- <b>${p.type}</b>: ${p.summary||''} <small>[${p.status}]</small><pre>${JSON.stringify(p.payload,null,1)}</pre>
- ${p.evidence.map(e=>`<blockquote>“${e.quote}” <small>${e.source_id} / ${e.item_id} ${e.verified?'✔ verified':'✘ not found'}</small></blockquote>`).join('')}
- ${p.validation.errors.length?`<p>Validator: ${p.validation.errors.join('; ')}</p>`:''}
- ${p.status==='pending'?`<button onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';}
-async function act(id,a){await api(`/api/proposals/${id}/${a}`,{});loadProposals();}
-$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)`;$('#summary').textContent=r.summary||'';loadProposals();};
-loadSources();loadProposals();
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
+const t=iso=>iso?new Date(iso).toLocaleString('en-US',{timeZone:'America/Bogota',weekday:'short',hour:'2-digit',minute:'2-digit'}):'';
+async function loadSources(){const d=await api('/api/sources');const m=$('#mode');m.className=d.offline?'off':'on';
+ m.textContent=d.offline?'OFFLINE MODE · scripted agent, no model call':`LIVE · ${d.model}`;
+ $('#sources').innerHTML=d.sources.map(s=>`<label class="card" style="display:block"><input type="checkbox" data-id="${s.id}" ${s.granted?'checked':''}> <b>${s.kind}</b> ${esc(s.label)}</label>`).join('');
+ document.querySelectorAll('[data-id]').forEach(c=>c.onchange=async()=>{await api('/api/grants',{id:c.dataset.id,granted:c.checked});refresh();});}
+async function refresh(){const s=await api('/api/state');
+ $('#proposals').innerHTML=s.proposals.map(p=>`<div class="card ${p.status}"><b>${p.type}</b>: ${esc(p.summary)} <small>[${p.status}]</small><pre>${esc(JSON.stringify(p.payload,null,1))}</pre>
+ ${p.evidence.map(e=>`<blockquote>“${esc(e.quote)}” <small>${e.source_id} / ${e.item_id} ${e.verified?'✔ verified':'✘ not found'}</small></blockquote>`).join('')}
+ ${p.validation.errors.length?`<p class="blocked">Validator: ${esc(p.validation.errors.join('; '))}</p>`:''}
+ ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';
+ $('#log').innerHTML=s.log.slice().reverse().map(l=>`<tr class="${l.allowed?'':'blocked'}"><td>${new Date(l.at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'})}</td><td>${l.tool}</td><td>${l.source_id||'—'}</td><td>${l.allowed?'allowed':'⚠ '+esc(l.note)}</td></tr>`).join('')||'<tr><td><i>no tool calls yet</i></td></tr>';
+ $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.from_proposal?' ✨':''}</div>`).join('');
+ $('#tasks').innerHTML=s.tasks.map(x=>`<div>☐ ${esc(x.title)}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
+ $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
+async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
+$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)`;$('#summary').textContent=r.summary||'';refresh();};
+$('#reset').onclick=async()=>{await api('/api/reset',{});$('#summary').textContent='';refresh();};
+$('#savenote').onclick=async()=>{const r=await api('/api/voice',{text:$('#paste').value});if(r.error)alert(r.error);else $('#paste').value='';refresh();};
+// Audio -> mono 16-bit PCM WAV @16 kHz (what Muse Voice Transcribe accepts), done in the browser.
+async function toWav(blob){const ac=new AudioContext();const buf=await ac.decodeAudioData(await blob.arrayBuffer());
+ const off=new OfflineAudioContext(1,Math.ceil(buf.duration*16000),16000);const src=off.createBufferSource();src.buffer=buf;src.connect(off.destination);src.start();
+ const pcm=(await off.startRendering()).getChannelData(0);const dv=new DataView(new ArrayBuffer(44+pcm.length*2));const w=(o,s)=>[...s].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+ w(0,'RIFF');dv.setUint32(4,36+pcm.length*2,true);w(8,'WAVE');w(12,'fmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,16000,true);dv.setUint32(28,32000,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,pcm.length*2,true);
+ pcm.forEach((v,i)=>dv.setInt16(44+i*2,Math.max(-1,Math.min(1,v))*0x7fff,true));return new Blob([dv],{type:'audio/wav'});}
+async function sendAudio(blob){$('#vstatus').textContent='transcribing…';const wav=await toWav(blob);
+ const r=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'audio/wav'},body:wav}).then(r=>r.json());$('#vstatus').textContent=r.error||'saved as '+r.id;refresh();}
+let rec;$('#rec').onclick=async()=>{if(rec?.state==='recording'){rec.stop();return;}
+ const st=await navigator.mediaDevices.getUserMedia({audio:true});const chunks=[];rec=new MediaRecorder(st);rec.ondataavailable=e=>chunks.push(e.data);
+ rec.onstop=()=>{st.getTracks().forEach(x=>x.stop());$('#rec').textContent='● Record';sendAudio(new Blob(chunks));};rec.start();$('#rec').textContent='■ Stop';};
+$('#file').onchange=e=>e.target.files[0]&&sendAudio(e.target.files[0]);
+loadSources();refresh();
 </script></body></html>
