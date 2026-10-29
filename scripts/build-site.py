@@ -62,12 +62,12 @@ page('index', 'Overview', """
 <div class="grid">
 <div class="card"><b>Not</b> WakaTime (coding time), RescueTime/Rize (which apps), LinearB/Swarmia (team git dashboards), Reclaim (fills your calendar).</div>
 <div class="card"><b>Meta tooling:</b> Muse Spark <code>muse-spark-1.3</code> for multi-step tool calling; Muse Voice Transcribe for voice notes. Provider is env-swappable (OpenAI-compatible).</div></div>
-<div class="card es"><b>Resumen para Eric (ES)</b><ul>
-<li><b>Ancla</b>: la tarea asignada con su evidencia (issue asignado, pedido en chat).</li>
-<li><b>Desvío (drift)</b>: un disparador (comentario de la IA, mención o hallazgo propio) te lleva a otro contexto ≥ 15 min antes de volver al ancla.</li>
-<li><b>Rubber stamp</b>: algo quedó "revisado" sin evidencia: aprobado muy rápido para su tamaño, sin CI, la IA dijo "tests pass" sin log, o 0 comentarios y 0 archivos vistos.</li>
-<li><b>Validador</b>: código determinista; rechaza números o citas que no cuadran con la evidencia. Muse Spark solo redacta y propone.</li>
-<li><b>Fallback offline</b>: si la API falla, corre un agente guionado por el mismo validador y la UI lo marca.</li></ul></div>
+<div class="card es"><b>Summary</b><ul>
+<li><b>Anchor</b>: the assigned task with its evidence (assigned issue, chat request).</li>
+<li><b>Drift</b>: a trigger (AI comment, mention or self-discovery) pulls you into another context for 15+ min before returning to the anchor.</li>
+<li><b>Rubber stamp</b>: something got marked "reviewed" without evidence: approved too fast for its size, no CI, AI claimed "tests pass" with no log, or 0 comments and 0 files viewed.</li>
+<li><b>Validator</b>: deterministic code; rejects numbers or quotes that don't match the evidence. Muse Spark only drafts and proposes.</li>
+<li><b>Offline fallback</b>: if the API fails, a scripted agent runs through the same validator and the UI labels it.</li></ul></div>
 <h2>Pages</h2><p><a href="architecture.html">Architecture</a> · <a href="detectors.html">Detectors</a> · <a href="decisions.html">Decisions</a> · <a href="demo.html">Demo</a></p>
 """)
 
