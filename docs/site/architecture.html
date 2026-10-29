@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Architecture · Vespera Day Agent</title><link rel="stylesheet" href="style.css"><script type="module">import m from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";m.initialize({startOnLoad:true,theme:"default",securityLevel:"strict"});</script></head><body><nav><b>Vespera Day Agent</b><a href="index.html" class="">Overview</a><a href="architecture.html" class="on">Architecture</a><a href="detectors.html" class="">Detectors</a><a href="decisions.html" class="">Decisions</a><a href="demo.html" class="">Demo</a><a href="https://github.com/ericmaster/vespera-day-agent">GitHub</a></nav><main>
+<h1>Architecture</h1>
+<p>Zero runtime dependencies: Node 20+, <code>node:http</code>, <code>fetch</code>, <code>node:test</code>. File names below are the real modules in <code>src/</code>.</p>
+<h2>Components</h2>
+<pre class="mermaid">
+flowchart TB
+  subgraph Sources["Sources (fixtures + live)"]
+    F1[fixtures: chat, email, agent sessions, repo, notes, calendar, tasks]
+    F2[fixtures/day.json: Friday activity]
+    GL[GitHub LIVE: gh api graphql, read-only]
+  end
+  G["grants.js: per-source consent, all OFF by default"]
+  A["adapters/index.js + github-live.js: items + day events"]
+  M["metrics.js: computeDay, timeline, 8 metrics, detectDrift, reviewFlags"]
+  subgraph Agent["agent.js: Muse Spark loop, max 24 steps"]
+    T["tools.js: list_granted_sources, read_source, read_calendar, read_tasks, get_day_metrics, propose_change"]
+  end
+  O["offline-agent.js: scripted fallback, same toolbox"]
+  V["validator.js: evidence, quotes, overlaps, hours, metric values, detector evidence, numbers in text, banned language"]
+  S["state.js: local calendar, tasks, alerts, drafts, approve and revalidate"]
+  U["server.js + public/index.html: approval UI, consent log, clock, Check now"]
+  F1 --> A
+  F2 --> A
+  GL --> A
+  G --> A
+  A --> M
+  M --> T
+  A --> T
+  T --> V
+  O --> T
+  V --> S
+  S --> U
+  U -->|grant, clock, run, approve| G
+</pre>
+<h2>Sequence: Check now</h2>
+<pre class="mermaid">
+sequenceDiagram
+  actor Dev
+  participant UI as UI (public/index.html)
+  participant S as server.js
+  participant Ag as agent.js
+  participant MS as Muse Spark (chat/completions)
+  participant TB as tools.js
+  participant Me as metrics.js
+  participant V as validator.js
+  Dev->>UI: pick clock time, click Check now
+  UI->>S: POST /api/clock {now}
+  UI->>S: POST /api/run
+  S->>S: snapshot baseline metrics (first run)
+  S->>Ag: runAgent(grants, proposals, state)
+  loop until no tool calls or 24 steps
+    Ag->>MS: messages + tool schemas
+    MS-->>Ag: tool_calls
+    Ag->>TB: list_granted_sources / read_source / get_day_metrics
+    TB->>Me: computeDay(granted only, up to clock)
+    Me-->>TB: timeline, metrics, drift[], items with review_flags
+    Ag->>TB: propose_change(type, payload, evidence)
+    TB->>TB: quote must appear verbatim in cited item
+    TB->>V: validateProposal(ctx with day and metrics)
+    V-->>Ag: pending or invalid + reasons (model retries)
+  end
+  Note over Ag: model API error -> offline-agent.js, same toolbox, labelled OFFLINE FALLBACK
+  S-->>UI: summary, trace, proposals
+  Dev->>UI: Approve one proposal
+  UI->>S: POST /api/proposals/:id/approve
+  S->>V: revalidate now, apply to local state, revalidate the rest
+</pre>
+<h2>Event model</h2>
+<div class="card"><code>{ id, ts, source_id, context, action, text, lines?, review_seconds?, review_comments?, files_viewed?, review?, trigger?, assigned_by?, approved_via? }</code><br>
+Actions: <code>session_started, pr_opened, review_requested, ping, work, approved, ci_run, ci_failed, closed, anchor_start</code>. Triggers: <code>ai_remark, mention, self</code>. Fixture and live GitHub events share this shape, so detectors run unchanged on both.</div>
+<h2>HTTP API (server.js)</h2>
+<table><tr><th>Route</th><th>Does</th></tr>
+<tr><td><code>GET /api/sources</code></td><td>sources + grants, model, offline flag, GitHub live status</td></tr>
+<tr><td><code>POST /api/grants</code></td><td>grant/revoke one source, logged</td></tr>
+<tr><td><code>POST /api/probe</code></td><td>try a read (demo of a blocked, logged ungranted read)</td></tr>
+<tr><td><code>POST /api/clock</code></td><td>set the simulated clock, revalidate</td></tr>
+<tr><td><code>POST /api/run</code></td><td>Check now: agent run (live, offline fallback on error)</td></tr>
+<tr><td><code>POST /api/proposals/:id/approve|reject</code></td><td>per-change approval</td></tr>
+<tr><td><code>GET /api/state</code></td><td>proposals, calendar, tasks, drafts, consent log, day metrics, baseline</td></tr>
+<tr><td><code>POST /api/github/refresh</code>, <code>/api/voice</code>, <code>/api/reset</code></td><td>re-read live repo; voice/pasted note; reset</td></tr></table>
+</main></body></html>

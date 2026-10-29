@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Detectors · Vespera Day Agent</title><link rel="stylesheet" href="style.css"></head><body><nav><b>Vespera Day Agent</b><a href="index.html" class="">Overview</a><a href="architecture.html" class="">Architecture</a><a href="detectors.html" class="on">Detectors</a><a href="decisions.html" class="">Decisions</a><a href="demo.html" class="">Demo</a><a href="https://github.com/ericmaster/vespera-day-agent">GitHub</a></nav><main>
+<h1>Detectors and validator</h1>
+<p>Both detectors are plain functions in <code>src/metrics.js</code>. The model never computes them; it reads them through <code>get_day_metrics</code>.</p>
+<h2>1. Task drift: <code>detectDrift(events, now, minMinutes = DRIFT_MINUTES || 15)</code></h2>
+<div class="card"><ol>
+<li>An <code>anchor_start</code> event sets the anchor: the assigned task plus its evidence (<code>assigned_by</code>).</li>
+<li>An event with a <code>trigger</code> (<code>ai_remark</code>, <code>mention</code>, <code>self</code>) in another context starts a side-quest.</li>
+<li>It ends at the first event back in the anchor context, at <code>now</code>, or (never spanning days or a new anchor) at the last side-quest event.</li>
+<li>Kept only if minutes ≥ threshold. Output: <code>{anchor, anchor_evidence, side_quest, trigger, trigger_event, start, end, minutes}</code>.</li></ol></div>
+<div class="grid">
+<div class="card"><b>Fixture d29 (Friday)</b><br>Anchor: PR #44 auth review (chat d03, started d28 11:35).<br>Trigger d29 11:41, <code>ai_remark</code>: "the session middleware uses a deprecated crypto API, want me to refactor it?"<br>Back on PR #44 at d32 12:12 → <b class="bad">31 min</b>.</div>
+<div class="card"><b>Real: vda-demo-target</b><br>Anchor: issue #1 "Add CSV export" assigned to ericmaster.<br>Trigger: issue #2 "Noticed while working on #1…" → <code>self</code>.<br>Back on #1 when PR #4 ("Closes #1") opened → <b class="bad">17 min</b>.</div></div>
+<h2>2. Rubber-stamp review: <code>reviewFlags(events)</code></h2>
+<p>A closed, "reviewed" item counts as <b>closed with proper review</b> only if no flag fires:</p>
+<table><tr><th>Rule</th><th>Fires when</th></tr>
+<tr><td><code>too_fast</code></td><td>approval <code>review_seconds</code> &lt; 60 × lines / 100 (1 min per 100 lines; our heuristic)</td></tr>
+<tr><td><code>no_ci</code></td><td>no <code>ci_run</code> event in the item</td></tr>
+<tr><td><code>unverified_claim</code></td><td>a non-CI event says "tests pass/passed" and there is no CI run</td></tr>
+<tr><td><code>no_review_activity</code></td><td>0 review comments and 0 files viewed</td></tr></table>
+<p>Live repos (<code>github-live.js</code>): approval moment = earliest of first review (COMMENTED counts; GitHub blocks self-approval), an "LGTM" comment, or the merge. Every merge is the closure. A bare "LGTM" is not review activity.</p>
+<div class="grid">
+<div class="card"><b class="bad">PR #3 (real): rubber stamp</b><br>785 lines, review after 40 s (minimum 471 s), no CI, body says "all tests pass", 0 comments, 0 of 1 files viewed.<br>Flags: too_fast, no_ci, unverified_claim, no_review_activity.</div>
+<div class="card"><b class="ok">PR #4 (real): closed with proper review</b><br>37 lines, review after 170 s, CI <code>test</code> passed, 2 inline comments, 3 of 3 files viewed.<br>Flags: none.</div></div>
+<p class="mut">Same pattern in the fixture: PR #47 (800 lines, 40 s, "all tests pass", no CI) is flagged; PR #41 (CI run #812, 18 min, 3 comments, 9/9 files) is clean.</p>
+<h2>3. Validator (src/validator.js)</h2>
+<table><tr><th>Check</th><th>Applies to</th></tr>
+<tr><td>evidence present, only from granted sources; quote verbatim in the cited item (tools.js)</td><td>all</td></tr>
+<tr><td>health/wellness words rejected (workflow framing only)</td><td>all</td></tr>
+<tr><td>payload not nested under its type</td><td>all</td></tr>
+<tr><td>no overlaps, within 09:00–18:00, same day, not before now, fixed events untouchable</td><td>blocks, moves, declines</td></tr>
+<tr><td>deadline valid and ≤ external due date</td><td>tasks, deadlines</td></tr>
+<tr><td><code>value</code> equals the computed metric; detector alerts cite the detector's evidence event</td><td>alert</td></tr>
+<tr><td><b>numbers in the text</b> ("N min", "N lines", "N s", "#N", "N switches") must match the cited drift/items or day metrics</td><td>alert</td></tr></table>
+<div class="card"><b>Number check, real case.</b> An alert citing the 17-min drift (<code>gh-i2</code>) said "up to 31 min". Now rejected: <code class="bad">text says 31 min but cited evidence has 17</code>. The model gets the reason and retries; citing <code>d29</code> with "31 min" passes.</div>
+</main></body></html>

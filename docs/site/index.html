@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Overview · Vespera Day Agent</title><link rel="stylesheet" href="style.css"></head><body><nav><b>Vespera Day Agent</b><a href="index.html" class="on">Overview</a><a href="architecture.html" class="">Architecture</a><a href="detectors.html" class="">Detectors</a><a href="decisions.html" class="">Decisions</a><a href="demo.html" class="">Demo</a><a href="https://github.com/ericmaster/vespera-day-agent">GitHub</a></nav><main>
+<h1>Review quality, evidenced.</h1>
+<p class="pitch">It doesn't measure your hours, it measures whether you got to review.</p>
+<div class="card"><b>What it is.</b> A developer-owned agent. From sources <i>you</i> grant (chat, email, coding-agent sessions, GitHub PRs/commits, calendar, tasks) it builds a context-switch timeline and tracks one number: <b>items closed with proper review</b>. Two deterministic detectors (task drift, rubber-stamp review) feed a Meta <b>Muse Spark</b> agent that proposes alerts, parked side-quests, verification checklists, no-interrupt review blocks and team status drafts. A deterministic validator checks every proposal; you approve each one. Nothing is sent. There is no manager view.</div>
+<h2>The problem (sourced)</h2>
+<table><tr><th>Evidence</th><th>Source</th></tr>
+<tr><td>Median time in PR review +441%; 31% more PRs merge with no review at all (22,000 devs, 2026)</td><td><a href="https://www.faros.ai/blog/key-takeaways-from-the-dora-report-2025">Faros</a></td></tr>
+<tr><td>PR review time +91% while AI users merge 98% more PRs (1,255 teams, 2025)</td><td><a href="https://243608892.fs1.hubspotusercontent-na2.net/hubfs/243608892/AI_Engineering_Impact_Report_July_2025_Faros_AI.pdf">Faros 2025</a></td></tr>
+<tr><td>Agentic AI PRs wait 5.3× longer before pickup; AI PRs are 2.6× larger (8M PRs)</td><td><a href="https://linearb.io/blog/code-generation-faster-shipping-isnt">LinearB 2026</a></td></tr>
+<tr><td>AI raises throughput but still raises delivery instability</td><td><a href="https://cloud.google.com/blog/products/ai-machine-learning/announcing-the-2025-dora-report">DORA 2025</a></td></tr>
+<tr><td>~47 s on a screen before switching; ~25 min to return to an interrupted project</td><td><a href="https://www.universityofcalifornia.edu/news/cant-pay-attention-youre-not-alone">Gloria Mark, UC</a></td></tr>
+<tr><td>"my primary job shifted overnight from builder to an exhausted reviewer reading 15 pull requests a day"</td><td><a href="https://www.reddit.com/r/AI_Coders/comments/1v5d2v7/ai_made_writing_code_effortless_but_code_reviews/">r/AI_Coders</a></td></tr>
+</table>
+<p class="mut">Full research, persona and hypothesis: <a href="https://github.com/ericmaster/vespera-day-agent/blob/main/docs/VALIDATION.md">VALIDATION.md</a>. Persona and business rows there are marked as team hypotheses.</p>
+<div class="grid">
+<div class="card"><b>Not</b> WakaTime (coding time), RescueTime/Rize (which apps), LinearB/Swarmia (team git dashboards), Reclaim (fills your calendar).</div>
+<div class="card"><b>Meta tooling:</b> Muse Spark <code>muse-spark-1.3</code> for multi-step tool calling; Muse Voice Transcribe for voice notes. Provider is env-swappable (OpenAI-compatible).</div></div>
+<div class="card es"><b>Resumen para Eric (ES)</b><ul>
+<li><b>Ancla</b>: la tarea asignada con su evidencia (issue asignado, pedido en chat).</li>
+<li><b>Desvío (drift)</b>: un disparador (comentario de la IA, mención o hallazgo propio) te lleva a otro contexto ≥ 15 min antes de volver al ancla.</li>
+<li><b>Rubber stamp</b>: algo quedó "revisado" sin evidencia: aprobado muy rápido para su tamaño, sin CI, la IA dijo "tests pass" sin log, o 0 comentarios y 0 archivos vistos.</li>
+<li><b>Validador</b>: código determinista; rechaza números o citas que no cuadran con la evidencia. Muse Spark solo redacta y propone.</li>
+<li><b>Fallback offline</b>: si la API falla, corre un agente guionado por el mismo validador y la UI lo marca.</li></ul></div>
+<h2>Pages</h2><p><a href="architecture.html">Architecture</a> · <a href="detectors.html">Detectors</a> · <a href="decisions.html">Decisions</a> · <a href="demo.html">Demo</a></p>
+</main></body></html>

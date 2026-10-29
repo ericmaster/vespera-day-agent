@@ -4,7 +4,7 @@
 
 AI agents write most of the code now; the dev's job is to review it, and the review queue keeps growing while every ping pulls you out of the PR. Vespera is a dev-owned monitor: from sources *you* grant (chat, email, coding-agent sessions, PRs/commits) it builds a context-switch timeline and tracks the one number that matters, **items closed with proper review** (PR reviewed before merge, agent session closed with tests run). During the day a Meta **Muse Spark** agent raises evidence-backed alerts and proposes no-interrupt review/testing blocks and a team status draft. A deterministic validator checks every proposal (metric values must match, quotes must be verbatim, no calendar conflicts, workflow language only), and you approve each one. Nothing is sent; there is no manager view.
 
-Not WakaTime (coding time), not RescueTime/Rize (which apps), not Reclaim (fills your calendar). Why: see [docs/VALIDATION.md](docs/VALIDATION.md).
+Not WakaTime (coding time), not RescueTime/Rize (which apps), not Reclaim (fills your calendar). Why: see [docs/VALIDATION.md](docs/VALIDATION.md). Explainer site (architecture, detectors, decisions, demo): [docs/site](https://ericmaster.github.io/vespera-day-agent/site/).
 
 Built for the Meta Global AI Developer Hackathon (Cerebral Valley, indie track). Uses Muse Spark (`muse-spark-1.3`) for tool-calling and Muse Voice Transcribe for voice notes.
 
