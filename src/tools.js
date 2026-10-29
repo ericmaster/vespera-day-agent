@@ -1,6 +1,7 @@
 // Agent tool definitions (OpenAI Chat Completions "tools" format) + executors.
-import { adapters, byId } from './adapters/index.js';
-import { validateProposal, PROPOSAL_TYPES } from './validator.js';
+import { byId } from './adapters/index.js';
+import { PROPOSAL_TYPES } from './validator.js';
+import { createState, revalidate } from './state.js';
 
 export const toolSchemas = [
   { type: 'function', function: { name: 'list_granted_sources', description: 'List the sources the user has granted access to. Only these may be read.', parameters: { type: 'object', properties: {}, additionalProperties: false } } },
@@ -15,37 +16,43 @@ export const toolSchemas = [
   }, required: ['type', 'summary', 'payload', 'evidence'] } } },
 ];
 
-export function makeToolbox(grants, store) {
-  const need = (id) => { if (!grants.isGranted(id)) throw new Error(`source ${id} not granted`); return byId(id); };
-  const calId = adapters.find((a) => a.kind === 'calendar').id;
-  const taskId = adapters.find((a) => a.kind === 'tasks').id;
+export function makeToolbox(grants, store, state = createState()) {
+  const calId = 'calendar:main', taskId = 'tasks:main';
+  // Consent log: every tool call, which source it touched, and whether consent allowed it.
+  const log = (tool, source_id, allowed, note) => state.log.push({ at: new Date().toISOString(), tool, source_id, allowed, ...(note ? { note } : {}) });
+  const need = (tool, id) => {
+    const ok = !!byId(id) && grants.isGranted(id);
+    log(tool, id, ok, ok ? undefined : 'BLOCKED: source not granted');
+    if (!ok) throw new Error(`source ${id} not granted`);
+    return byId(id);
+  };
   const ctx = () => ({
-    events: grants.isGranted(calId) ? byId(calId).items() : [],
-    tasks: grants.isGranted(taskId) ? byId(taskId).items() : [],
+    events: grants.isGranted(calId) ? byId(calId).items(state) : [],
+    tasks: grants.isGranted(taskId) ? byId(taskId).items(state) : [],
     grantedIds: grants.grantedIds(),
   });
   return {
-    ctx,
-    list_granted_sources: () => grants.list().filter((s) => s.granted),
+    ctx, state,
+    list_granted_sources: () => { log('list_granted_sources', null, true); return grants.list().filter((s) => s.granted); },
     read_source: ({ source_id, query }) => {
-      const items = need(source_id).items();
+      const items = need('read_source', source_id).items(state);
       const q = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
       return q.length ? items.filter((it) => q.some((w) => `${it.title} ${it.text}`.toLowerCase().includes(w))) : items;
     },
-    read_calendar: () => need(calId).items(),
-    read_tasks: () => need(taskId).items(),
+    read_calendar: () => need('read_calendar', calId).items(state),
+    read_tasks: () => need('read_tasks', taskId).items(state),
     propose_change: (p) => {
-      // Evidence quotes must literally appear in the cited item.
+      // Evidence quotes must literally appear in the cited item of a granted source.
       for (const e of p.evidence || []) {
-        const a = byId(e.source_id);
-        const item = a && grants.isGranted(e.source_id) && a.items().find((i) => i.id === e.item_id);
+        const a = byId(e.source_id), granted = !!a && grants.isGranted(e.source_id);
+        log('propose_change', e.source_id, granted, granted ? `cites ${e.item_id}` : 'FLAGGED: evidence cites a non-granted source');
+        const item = granted && a.items(state).find((i) => i.id === e.item_id);
         e.verified = !!(item && `${item.title}\n${item.text}`.includes(e.quote));
       }
-      const v = validateProposal(p, { ...ctx() });
-      if ((p.evidence || []).some((e) => !e.verified)) v.errors.push('evidence quote not found in cited item'), (v.ok = false);
-      const rec = { id: `p${store.length + 1}`, status: v.ok ? 'pending' : 'invalid', ...p, validation: v };
+      const rec = { id: `p${store.length + 1}`, status: 'pending', ...p };
+      revalidate([rec], ctx());
       store.push(rec);
-      return { id: rec.id, status: rec.status, errors: v.errors };
+      return { id: rec.id, status: rec.status, errors: rec.validation.errors };
     },
   };
 }
