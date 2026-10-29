@@ -85,7 +85,7 @@ window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
 <p id="lsummary"></p>
 <h2>2. Review proposals</h2><div id="proposals"></div>
 </div><div>
-<h2>Consent log</h2><button onclick="api('/api/probe',{id:'notes:ramblings'}).then(refresh)">Test consent: read notes</button><table id="log"></table>
+<h2>Consent log</h2><p style="font-size:.8rem"><a href="/api/audit.jsonl" download="vespera-audit.jsonl">Download audit log (JSONL)</a>: your decision record, manual export, never sent anywhere.</p><button onclick="api('/api/probe',{id:'notes:ramblings'}).then(refresh)">Test consent: read notes</button><table id="log"></table>
 <h2>Drafts (never sent)</h2><div id="drafts"></div>
 <h2>Calendar (local)</h2><div id="events"></div>
 <h2>Tasks (local)</h2><div id="tasks"></div>
@@ -104,7 +104,7 @@ async function refresh(){const s=await api('/api/state');
  $('#proposals').innerHTML=s.proposals.map(p=>`<div class="card ${p.status}"><b>${p.type}</b>: ${esc(p.summary)} <small>[${p.status}]</small><pre>${esc(JSON.stringify(p.payload,null,1))}</pre>${p.payload.checklist?'<ul>'+p.payload.checklist.map(c=>`<li>☐ ${esc(c)}</li>`).join('')+'</ul>':''}
  ${p.evidence.map(e=>`<blockquote>“${esc(e.quote)}” <small>${e.source_id} / ${e.item_id} ${e.verified?'✔ verified':'✘ not found'}</small></blockquote>`).join('')}
  ${p.validation.errors.length?`<p class="blocked">Validator: ${esc(p.validation.errors.join('; '))}</p>`:''}
- ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';
+ ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''} <button onclick="whyP('${p.id}')">Why?</button><div class="whyp" id="why-${p.id}" style="display:${openWhy.has(p.id)?'block':'none'}"></div></div>`).join('')||'<i>none yet</i>';
  $('#log').innerHTML=s.log.slice().reverse().map(l=>`<tr class="${l.allowed?'':'blocked'}"><td>${new Date(l.at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'})}</td><td>${l.tool}</td><td>${l.source_id||'—'}</td><td>${l.allowed?'allowed':'⚠ '+esc(l.note)}</td></tr>`).join('')||'<tr><td><i>no tool calls yet</i></td></tr>';
  $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.no_interrupt?' 🚫 no interruptions':''}${e.from_proposal?' ✨':''}</div>`).join('');
  $('#tasks').innerHTML=s.tasks.map(x=>`<div>${x.parked?'🅿':'☐'} ${esc(x.title)}${x.checklist?' <small>('+x.checklist.length+' checks)</small>':''}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
@@ -117,7 +117,20 @@ async function refresh(){const s=await api('/api/state');
  $('#eod').innerHTML=b?`<b>Before → now</b> (since first check ${t(s.baseline.at).split(', ').pop()}): closed with proper review ${b.closed_with_review} → ${m.closed_with_review} · rubber-stamped ${b.rubber_stamp_reviews} → ${m.rubber_stamp_reviews} · backlog ${b.review_backlog} → ${m.review_backlog} · max drift ${b.drift_minutes_max} → ${m.drift_minutes_max} min · approved: ${ap.filter(a=>a.payload.no_interrupt).length} no-interrupt block(s), ${ap.filter(a=>a.payload.parked).length} parked side-quest(s), ${ap.filter(a=>a.payload.checklist).length} verification checklist(s), ${s.drafts.length} draft(s)`:'<i>Before/after appears after the first Check now.</i>';
  $('#drafts').innerHTML=s.drafts.map(x=>`<div class="card"><small>${esc(x.channel)} · draft, not sent</small><br>${esc(x.text)}</div>`).join('')||'<i>none</i>';
  $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
-async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
+const openWhy=new Set();
+async function whyP(id){const el=document.getElementById('why-'+id);if(openWhy.has(id)){openWhy.delete(id);el.style.display='none';return}openWhy.add(id);el.style.display='block';el.innerHTML='loading…';
+ const w=await api('/api/why?proposal_id='+encodeURIComponent(id));el.innerHTML=renderWhy(w);}
+function renderWhy(w){if(!w.proposal)return'<i>No decision record for this proposal (run before the audit log existed?)</i>';const st=w.run_start||{},p=w.proposal;
+ return `<div style="font-size:.8rem;background:#f6f8fa;border-radius:6px;padding:.4rem .6rem;margin-top:.3rem"><b>Why? (decision record ${esc(w.run_id)})</b><br>
+ Mode <b>${esc(p.agent.mode)}</b> · model ${esc(p.agent['gen_ai.request.model'])} via ${esc(st['gen_ai.provider.name'])} · prompt ${esc(p.agent.prompt_version)} · sim clock ${esc(st.sim_clock)}<br>
+ Granted: ${esc((st.granted_sources||[]).join(', '))}<br>
+ Evidence: ${p.evidence.map(e=>`<br>&nbsp;${e.verified?'✔':'✘'} ${esc(e.source_id)}/${esc(e.item_id)} “${esc(e.quote)}”`).join('')||'none'}<br>
+ Validator: ${esc(p.validator.status)}${p.validator.errors.length?' · '+esc(p.validator.errors.join('; ')):' · all checks passed'}<br>
+ Earlier rejected attempts (this run): ${w.attempts.length?w.attempts.map(a=>`<br>&nbsp;✘ ${esc(a.proposal_id)} ${esc(a.type)}: ${esc(a.errors.join('; '))}`).join(''):'none'}<br>
+ Tool calls in order: <ol style="margin:.2rem 0;padding-left:1.4rem">${w.tool_calls.map(t=>`<li>${esc(new Date(t.started_at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'}))} ${esc(t['gen_ai.tool.name'])} → ${esc(t.result_summary.slice(0,140))}</li>`).join('')}</ol>
+ Your decision: ${w.decisions.length?w.decisions.map(d=>`${esc(d.user_decision.action)} at ${esc(new Date(d.user_decision.at).toLocaleTimeString('en-US',{timeZone:'America/Bogota'}))} (Bogotá)`).join(', '):'none yet'}
+ ${w.run_end?.['gen_ai.usage.input_tokens']!=null?`<br>Tokens: ${w.run_end['gen_ai.usage.input_tokens']} in / ${w.run_end['gen_ai.usage.output_tokens']} out`:''}</div>`;}
+async function act(id,a){openWhy.delete(id);const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
 const runAgent=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)${r.fallback?' · model failed, OFFLINE FALLBACK used: '+r.fallback:''}`;$('#lsummary').textContent=r.summary||'';refresh();};
 $('#reset').onclick=async()=>{await api('/api/reset',{});$('#lsummary').textContent='';refresh();};
 $('#savenote').onclick=async()=>{const r=await api('/api/voice',{text:$('#paste').value});if(r.error)alert(r.error);else $('#paste').value='';refresh();};

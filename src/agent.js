@@ -4,6 +4,7 @@ import { toolSchemas, makeToolbox } from './tools.js';
 import { adapters } from './adapters/index.js';
 import { createGrants } from './grants.js';
 import { runOffline } from './offline-agent.js';
+import { sha256, instrument, startRun, finishRun, newRunId } from './audit.js';
 
 const SYSTEM = (now) => `You are Vespera Day Agent, an intraday review-quality monitor owned by the developer. You read ONLY the sources the user granted (call list_granted_sources first).
 Core metric: items closed with proper review (PR reviewed before merge, agent session closed with tests run). Call get_day_metrics for the deterministic context-switch timeline and metrics; never compute or invent numbers yourself.
@@ -25,24 +26,37 @@ export async function chat(messages, tools) {
 
 export const isOffline = () => !config.apiKey || process.env.OFFLINE === '1';
 
-export async function runAgent(grants, store, { maxSteps = 24, log = () => {}, state } = {}) {
-  const tb = makeToolbox(grants, store, state);
-  if (isOffline()) return { ...runOffline(tb, { log }), offline: true, proposals: store };
-  try { return await runLive(tb, store, { maxSteps, log }); }
+// Prompt version = hash of the SYSTEM template (clock left as a placeholder).
+export const PROMPT_VERSION = sha256(SYSTEM('{now}'));
+
+export async function runAgent(grants, store, { maxSteps = 24, log = () => {}, state, audit, forceOffline = null } = {}) {
+  const base = makeToolbox(grants, store, state);
+  const run_id = newRunId();
+  const tb = audit ? instrument(base, audit, run_id) : base;
+  tb.state = base.state;
+  const meta = { prompt_version: PROMPT_VERSION };
+  const done = (r, mode, model) => { if (audit) finishRun(audit, run_id, { mode, model, ...meta, store, summary: r.summary, fallback: r.fallback, usage: r.usage, steps: r.steps }); return { ...r, run_id, mode, proposals: store }; };
+  const offlineModel = 'offline-script';
+  if (audit) startRun(audit, { run_id, model: forceOffline || isOffline() ? offlineModel : config.model, gateway: forceOffline || isOffline() ? 'none' : new URL(config.baseUrl).host, ...meta, granted_sources: grants.grantedIds(), sim_clock: base.state.now });
+  if (forceOffline) return done({ ...runOffline(tb, { log }), offline: true, fallback: forceOffline }, 'fallback', offlineModel);
+  if (isOffline()) return done({ ...runOffline(tb, { log }), offline: true }, 'offline', offlineModel);
+  try { return done(await runLive(tb, store, { maxSteps, log }), 'live', config.model); }
   catch (e) {
     // Fallback, not the default: if the model API fails mid-demo, the scripted agent runs through the
     // same toolbox and validator, and the UI labels the run as a fallback with the error.
     store.splice(0);
-    return { ...runOffline(tb, { log }), offline: true, fallback: e.message.slice(0, 200), proposals: store };
+    return done({ ...runOffline(tb, { log }), offline: true, fallback: e.message.slice(0, 200) }, 'fallback', offlineModel);
   }
 }
 
 async function runLive(tb, store, { maxSteps, log }) {
   const messages = [{ role: 'system', content: SYSTEM(tb.state.now) }, { role: 'user', content: 'Check now: how is my review quality today, and what should change for the rest of the day?' }];
+  const usage = { input: 0, output: 0 };
   for (let step = 0; step < maxSteps; step++) {
-    const msg = (await chat(messages, toolSchemas)).choices[0].message;
+    const res = await chat(messages, toolSchemas), msg = res.choices[0].message;
+    usage.input += res.usage?.prompt_tokens || 0; usage.output += res.usage?.completion_tokens || 0;
     messages.push(msg);
-    if (!msg.tool_calls?.length) return { summary: msg.content, proposals: store };
+    if (!msg.tool_calls?.length) return { summary: msg.content, proposals: store, usage, steps: step + 1 };
     for (const call of msg.tool_calls) {
       let out;
       try { out = tb[call.function.name](JSON.parse(call.function.arguments || '{}')); }
@@ -51,7 +65,7 @@ async function runLive(tb, store, { maxSteps, log }) {
       messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(out).slice(0, 20000) });
     }
   }
-  return { summary: '(step limit reached)', proposals: store };
+  return { summary: '(step limit reached)', proposals: store, usage, steps: maxSteps };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

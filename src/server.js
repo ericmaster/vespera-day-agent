@@ -1,7 +1,17 @@
 // Minimal HTTP server, zero dependencies. Routes live in src/app.js.
 import { createServer } from 'node:http';
 import { config } from './config.js';
-import { handle } from './app.js';
+import { handle, audit } from './app.js';
+import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+// Local decision record: in memory by default; set AUDIT_FILE (e.g. .data/audit.jsonl) to keep an append-only file.
+const AF = process.env.AUDIT_FILE;
+if (AF) {
+  if (existsSync(AF)) audit.load(readFileSync(AF, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)));
+  mkdirSync(dirname(AF), { recursive: true });
+  audit.sink = (r) => appendFileSync(AF, JSON.stringify(r) + '\n');
+}
 import { isOffline } from './agent.js';
 import { liveEvents } from './adapters/github-live.js';
 

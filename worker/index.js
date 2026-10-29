@@ -24,7 +24,14 @@ globalThis.__VDA_FILES = {
 
 export class DemoApp extends DurableObject {
   async fetch(request) {
-    const { handle } = await import('../src/app.js'); // after __VDA_FILES and process.env are ready
+    const { handle, audit } = await import('../src/app.js'); // after __VDA_FILES and process.env are ready
+    // Decision record lives in this Durable Object's storage: one key per record, append-only.
+    if (!this.auditLoaded) {
+      const m = await this.ctx.storage.list({ prefix: 'audit:' });
+      audit.load([...m.values()]);
+      audit.sink = (r, i) => { this.ctx.storage.put(`audit:${String(i).padStart(9, '0')}`, r); };
+      this.auditLoaded = true;
+    }
     const url = new URL(request.url);
     const out = await handle({
       method: request.method, url: url.pathname + url.search, headers: request.headers,

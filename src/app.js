@@ -4,18 +4,20 @@ import { config } from './config.js';
 import { adapters } from './adapters/index.js';
 import { createGrants } from './grants.js';
 import { runAgent, isOffline } from './agent.js';
-import { runOffline } from './offline-agent.js';
 import { makeToolbox } from './tools.js';
 import { createState, approve, revalidate } from './state.js';
 import { computeDay, dayEvents } from './metrics.js';
 import { liveEvents, liveStatus } from './adapters/github-live.js';
 import { buildReplay } from './playback.js';
 import { widgetState } from './widget.js';
+import { createAudit, recordDecision, why } from './audit.js';
 const replay = () => buildReplay(json('day.json'), json('calendar.json'), { grants: ['chat:team', 'email:work', 'agent:coding-sessions', 'github:repo'] });
 import { json } from './adapters/index.js';
 import { transcribeWav, addNote } from './transcribe.js';
 
 const grants = createGrants(adapters);
+// Decision record. The host (Node server / Worker Durable Object) may set audit.sink to persist and audit.load() to restore.
+export const audit = createAudit();
 let state = createState();
 let proposals = [];
 const tb = () => makeToolbox(grants, proposals, state);
@@ -51,6 +53,17 @@ export async function handle(req) {
       if (isNaN(new Date(q.get('t')))) return send(res, 400, { error: 'bad t' });
       return send(res, 200, widgetState(replay(), q.get('t'), { mode: q.get('mode') === 'without' ? 'without' : 'with', choice: q.get('choice') || null, paused: !!q.get('paused'), decisions }));
     }
+    // Dev-only manual export of the decision record. Nothing is sent anywhere.
+    if (M === 'GET' && pathname === '/api/audit.jsonl') { const q = new URL(req.url, 'http://x').searchParams;
+      return { code: 200, type: 'application/x-ndjson; charset=utf-8', body: audit.jsonl({ run_id: q.get('run_id'), record: q.get('record') }) }; }
+    if (M === 'GET' && pathname === '/api/why') { const q = new URL(req.url, 'http://x').searchParams, pid = q.get('proposal_id');
+      const out = why(audit, pid, q.get('run_id') || proposals.find((p) => p.id === pid)?.run_id || null);
+      const w = widgetState(replay(), '2026-10-30T23:00:00-05:00', { choice: 'back' }).proposals.find((p) => p.id === pid);
+      if (w) { const R = replay(); out.detector = { ...w.why, quotes: w.why.evidence.map((id) => ({ item_id: id, quote: R.events.find((e) => e.id === id)?.text })) }; }
+      return send(res, 200, out); }
+    if (M === 'POST' && pathname === '/api/audit/decision') { const b = await body(req);
+      if (!b.proposal_id || !['approved', 'rejected', 'not_drift', 'park', 'back'].includes(b.action)) return send(res, 400, { error: 'bad decision' });
+      return send(res, 200, recordDecision(audit, { proposal_id: String(b.proposal_id).slice(0, 60), action: b.action, source: 'widget', replay_t: b.t || null, replay_mode: b.mode || null })); }
     if (M === 'GET' && pathname === '/api/replay') return send(res, 200, replay());
     if (M === 'GET' && pathname === '/api/sources') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey, offline: isOffline(), github: liveStatus() });
     if (M === 'POST' && pathname === '/api/github/refresh') { liveEvents(undefined, { refresh: true }); revalidate(proposals, tb().ctx()); return send(res, 200, liveStatus()); }
@@ -68,8 +81,8 @@ export async function handle(req) {
       proposals.splice(0); const trace = [];
       state.baseline ||= { at: state.now, metrics: computeDay(dayEvents(), grants.grantedIds(), state.now).metrics };
       const limited = isOffline() ? null : modelBudget(req);
-      const r = limited ? { ...runOffline(tb(), { log: (l) => trace.push(l) }), offline: true, fallback: limited } : await runAgent(grants, proposals, { log: (l) => trace.push(l), state });
-      return send(res, 200, { summary: r.summary, offline: !!r.offline, fallback: r.fallback || null, trace, proposals });
+      const r = await runAgent(grants, proposals, { log: (l) => trace.push(l), state, audit, forceOffline: limited });
+      return send(res, 200, { summary: r.summary, offline: !!r.offline, fallback: r.fallback || null, mode: r.mode, run_id: r.run_id, trace, proposals });
       } finally { running = false; }
     }
     if (M === 'POST' && pathname === '/api/voice') {
@@ -80,10 +93,15 @@ export async function handle(req) {
     }
     const m = pathname.match(/^\/api\/proposals\/(\w+)\/(approve|reject)$/);
     if (m && M === 'POST') {
-      if (m[2] === 'approve') { const r = approve(proposals, m[1], state, tb().ctx); return send(res, r.error ? 400 : 200, r); }
+      if (m[2] === 'approve') {
+        const r = approve(proposals, m[1], state, tb().ctx);
+        if (!r.error) recordDecision(audit, { run_id: r.proposal.run_id || null, proposal_id: m[1], action: 'approved', source: 'live_agent' });
+        return send(res, r.error ? 400 : 200, r);
+      }
       const p = proposals.find((x) => x.id === m[1]);
       if (!p) return send(res, 404, { error: 'not found' });
       p.status = 'rejected';
+      recordDecision(audit, { run_id: p.run_id || null, proposal_id: p.id, action: 'rejected', source: 'live_agent' });
       return send(res, 200, { proposal: p });
     }
     return send(res, 404, { error: 'not found' });
