@@ -6,10 +6,19 @@ if (existsSync('.env')) {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
 }
+export const DEFAULTS = { baseUrl: 'https://api.meta.ai/v1', model: 'muse-spark-1.3' };
+// Provider is swappable via env: any OpenAI-compatible /chat/completions endpoint works.
+// MODEL_BASE_URL / MODEL_NAME (legacy MODEL_API_BASE / MUSE_MODEL still honored). Defaults = Meta Muse Spark.
+export function resolveModelConfig(env = process.env) {
+  const key = env.MODEL_API_KEY;
+  return {
+    apiKey: key && key !== 'replace-me' ? key : null,
+    baseUrl: (env.MODEL_BASE_URL || env.MODEL_API_BASE || DEFAULTS.baseUrl).replace(/\/+$/, ''),
+    model: env.MODEL_NAME || env.MUSE_MODEL || DEFAULTS.model,
+  };
+}
 export const config = {
-  apiKey: process.env.MODEL_API_KEY && process.env.MODEL_API_KEY !== 'replace-me' ? process.env.MODEL_API_KEY : null,
-  baseUrl: process.env.MODEL_API_BASE || 'https://api.meta.ai/v1',
-  model: process.env.MUSE_MODEL || 'muse-spark-1.3',
+  ...resolveModelConfig(),
   port: Number(process.env.PORT || 3000),
   workingHours: { start: '09:00', end: '18:00' },
   timezone: 'America/Bogota',

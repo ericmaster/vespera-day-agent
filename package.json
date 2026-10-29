@@ -6,7 +6,7 @@
   "description": "Per-source consent + evidence-backed, validated calendar/task proposals, powered by Meta Muse Spark.",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "smoke": "node scripts/smoke-tool-call.js",
     "agent": "node src/agent.js"
   },

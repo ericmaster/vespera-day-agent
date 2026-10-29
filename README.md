@@ -44,6 +44,23 @@ npm start                 # http://localhost:3000 (offline mode until a key is s
 ```
 API: base URL `https://api.meta.ai/v1`, header `Authorization: Bearer $MODEL_API_KEY`, model `muse-spark-1.3`.
 
+## Model provider (swappable)
+
+**Target model: Meta Muse Spark (`muse-spark-1.3`).** The agent talks to any OpenAI-compatible `/chat/completions` endpoint with tool calling, picked by env:
+
+| Var | Default |
+| --- | --- |
+| `MODEL_BASE_URL` | `https://api.meta.ai/v1` |
+| `MODEL_API_KEY` | none (no key = offline mode) |
+| `MODEL_NAME` | `muse-spark-1.3` |
+
+Legacy `MODEL_API_BASE` / `MUSE_MODEL` still work. While direct Meta Model API access was pending, development ran against Muse Spark through an OpenAI-compatible gateway (`MODEL_BASE_URL=https://api.kilo.ai/api/gateway`, `MODEL_NAME=meta/muse-spark-1.3`). Swapping back to the direct Meta API is just the three env vars above; no code changes. Voice transcription (`/asr/transcribe`) uses the same base URL and is Meta-API specific.
+
+## Pre-existing vs. new during the hackathon
+
+- **Pre-existing (before the event):** none of this app's code; only general tooling (Node 20, `node:test`).
+- **New during the hackathon:** everything in this repo: consent/grants, adapters, validator, agent loop, offline mode, voice route, UI, and the env-swappable model provider.
+
 ## What this is not
 - It gives no health, medical, mental-health, nutrition or fitness advice.
 - It does not assess you, your body, your feelings or your habits. It only reads the sources you grant and proposes calendar/task changes.
