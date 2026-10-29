@@ -56,6 +56,7 @@ window.VDA_CONFIG={minutesPerSecond:2,slowNearFlag:.25,autoChooseAfterMs:5000,
 <header><h1>Vespera Day Agent</h1><div class="tabs"><button id="tabReplay" class="on">Replay the day</button> <button id="tabLive">Live agent</button></div><span id="modebadge"></span></header>
 <main><section id="replay">
 <div class="ctl"><button id="story">▶ Full story</button><button id="mWithout">Without Vespera</button><button id="mWith">With Vespera</button>
+<button id="openW" title="Opens a small 360px window synced to this replay">▣ Open widget</button>
 <button id="play">❚❚</button><select id="speed"><option value=.5>0.5×</option><option value=1 selected>1×</option><option value=2>2×</option><option value=4>4×</option><option value=10>10×</option></select>
 <span id="clockbig">08:35</span><input type="range" id="scrub" min=0 max=100 value=0 step=1></div>
 <div id="caption"></div>
@@ -174,7 +175,12 @@ function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
  if(playing&&performance.now()>freeze){let sp=C.minutesPerSecond*$('#speed').value;
   if(mode==='with'&&R.with&&!choice){const f=M(R.with.flag_at)-T0;if(f-t<3)sp*=C.slowNearFlag;if(t+sp*dt>=f){t=f;hitFlag();}else t+=sp*dt}else t+=sp*dt;
   if(t>=T1-T0){t=T1-T0;playing=false;onEnd();}}
- beats();render();requestAnimationFrame(loop);}
+ beats();render();tick();requestAnimationFrame(loop);}
+// Sync with the /widget window (same replay state at time t).
+const bc='BroadcastChannel'in window?new BroadcastChannel('vda'):null;let lastB=0;const iso=m=>`${R.day}T${hm(m)}:00-05:00`;
+function tick(){if(!bc||performance.now()-lastB<250)return;lastB=performance.now();bc.postMessage({type:'tick',mode,t:iso(T0+t),choice:mode==='with'?(choice==='later'?null:choice==='keep'?'not_drift':choice):null});}
+if(bc)bc.onmessage=e=>{if(e.data.type==='choice'&&mode==='with'&&!choice&&$('#nudge').style.display==='block')choose(e.data.choice==='not_drift'?'keep':'back');};
+$('#openW').onclick=()=>window.open('/widget','vda-widget','popup,width=360,height=640');
 function beats(){const now=T0+t;C.beats.forEach((b,i)=>{const a=beatAt(b);if(a==null||fired.has(i)||now<a)return;fired.add(i);setCap(b.text);if(b.freezeMs)freeze=performance.now()+b.freezeMs;});}
 function hitFlag(){if($('#nudge').style.display==='block')return;$('#nudge').style.display='block';playing=false;
  const ms=+(Q.get('autochoose')??C.autoChooseAfterMs);if(ms>0)setTimeout(()=>{if(!choice)choose('back')},ms);}

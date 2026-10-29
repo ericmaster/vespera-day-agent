@@ -10,6 +10,8 @@ import { createState, approve, revalidate } from './state.js';
 import { computeDay, dayEvents } from './metrics.js';
 import { liveEvents, liveStatus } from './adapters/github-live.js';
 import { buildReplay } from './playback.js';
+import { widgetState } from './widget.js';
+const replay = () => buildReplay(json('day.json'), json('calendar.json'), { grants: ['chat:team', 'email:work', 'agent:coding-sessions', 'github:repo'] });
 import { json } from './adapters/index.js';
 import { transcribeWav, addNote } from './transcribe.js';
 
@@ -41,7 +43,15 @@ export async function handle(req) {
     const { pathname } = new URL(req.url, 'http://x');
     const M = req.method;
     if (M === 'GET' && pathname === '/') return { code: 200, type: 'text/html; charset=utf-8', body: readText('public/index.html') };
-    if (M === 'GET' && pathname === '/api/replay') return send(res, 200, buildReplay(json('day.json'), json('calendar.json'), { grants: ['chat:team', 'email:work', 'agent:coding-sessions', 'github:repo'] }));
+    if (M === 'GET' && pathname === '/widget') return { code: 200, type: 'text/html; charset=utf-8', body: readText('public/widget.html') };
+    if (M === 'GET' && pathname === '/sw.js') return { code: 200, type: 'text/javascript', body: "self.addEventListener('notificationclick',(e)=>{e.notification.close();e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then((cs)=>{cs.forEach((c)=>c.postMessage({type:'nudge-action',action:e.action||'back'}));if(cs[0])return cs[0].focus();}));});" };
+    if (M === 'GET' && pathname === '/api/widget') {
+      const q = new URL(req.url, 'http://x').searchParams; let decisions = {};
+      try { decisions = JSON.parse(q.get('decisions') || '{}'); } catch {}
+      if (isNaN(new Date(q.get('t')))) return send(res, 400, { error: 'bad t' });
+      return send(res, 200, widgetState(replay(), q.get('t'), { mode: q.get('mode') === 'without' ? 'without' : 'with', choice: q.get('choice') || null, paused: !!q.get('paused'), decisions }));
+    }
+    if (M === 'GET' && pathname === '/api/replay') return send(res, 200, replay());
     if (M === 'GET' && pathname === '/api/sources') return send(res, 200, { sources: grants.list(), model: config.model, keyConfigured: !!config.apiKey, offline: isOffline(), github: liveStatus() });
     if (M === 'POST' && pathname === '/api/github/refresh') { liveEvents(undefined, { refresh: true }); revalidate(proposals, tb().ctx()); return send(res, 200, liveStatus()); }
     if (M === 'POST' && pathname === '/api/grants') { const { id, granted } = await body(req); grants.set(id, granted); state.log.push({ at: new Date().toISOString(), tool: 'user:grant', source_id: id, allowed: true, note: granted ? 'granted by user' : 'revoked by user' }); revalidate(proposals, tb().ctx()); return send(res, 200, grants.list()); }

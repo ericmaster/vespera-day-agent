@@ -13,12 +13,13 @@ import tasks from '../fixtures/tasks.json';
 import ramblings from '../fixtures/ramblings.txt';
 import agentSession from '../fixtures/agent-session.md';
 import indexHtml from '../public/index.html';
+import widgetHtml from '../public/widget.html';
 
 globalThis.__VDA_FILES = {
   'fixtures/day.json': day, 'fixtures/calendar.json': calendar, 'fixtures/chat.json': chat, 'fixtures/emails.json': emails,
   'fixtures/github.json': github, 'fixtures/github-live-sample.json': githubLive, 'fixtures/repo.json': repo,
   'fixtures/tasks.json': tasks, 'fixtures/ramblings.txt': ramblings, 'fixtures/agent-session.md': agentSession,
-  'public/index.html': indexHtml,
+  'public/index.html': indexHtml, 'public/widget.html': widgetHtml,
 };
 
 export class DemoApp extends DurableObject {

@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Vespera widget</title><meta name="viewport" content="width=360">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0E1116;--panel:#161B22;--line:#2A313C;--fg:#E6EDF3;--muted:#8B949E;--font:Inter,system-ui,sans-serif;--deliberate:#F2F2F2;--switch:#F5A524;--vespera:#2EC4B6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px var(--font);width:100%;max-width:360px}
+.w{padding:.7rem}.hd{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--muted)}.hd b{color:var(--fg);font-size:.95rem}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem .7rem;margin:.5rem 0}.lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+#anchor{font-weight:700;font-size:1.05rem;margin-top:.15rem}.blk{border-color:var(--vespera)}.blk b{font-size:1.6rem;color:var(--vespera);font-variant-numeric:tabular-nums}
+.cap{display:inline-flex;gap:.35rem;align-items:center;font-size:.78rem}.cap i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.active i{background:var(--vespera)}.paused i{background:transparent;border:1px solid var(--muted)}.unknown i{background:var(--switch)}
+button{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.3rem .55rem;font:inherit;font-size:.8rem;cursor:pointer}
+button.pri{background:var(--vespera);color:#0E1116;border-color:var(--vespera);font-weight:600}
+#card{display:none;border:2px solid var(--vespera);animation:pulse 1.6s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 12px var(--vespera)}}
+#card h3{margin:.1rem 0 .3rem;font-size:1rem}#card p{margin:.2rem 0 .4rem;color:#C9D1D9;font-size:.85rem}.fine{font-size:.78rem;color:var(--muted)}
+.p{border-top:1px solid var(--line);padding:.45rem 0}.p:first-child{border-top:0}.p .t{font-size:.85rem}.p .s{font-size:.72rem;color:var(--muted)}
+.mock{font-size:.65rem;border:1px solid var(--switch);color:var(--switch);border-radius:4px;padding:0 4px;margin-left:4px}
+.why{display:none;font-size:.72rem;color:var(--muted);background:#0E1116;border-radius:6px;padding:.35rem;margin-top:.3rem}
+.ok{color:var(--vespera)}.rej{color:var(--muted);text-decoration:line-through}#sync{font-size:.7rem}
+</style></head><body><div class="w">
+<div class="hd"><b>Vespera</b><span id="sync">standalone</span><span id="clock">--:--</span></div>
+<div class="box"><div class="lbl">Anchor task</div><div id="anchor">—</div><div class="s fine" id="anchorsub"></div></div>
+<div class="box blk" id="blk" style="display:none"><div class="lbl">Protected block</div><b id="cd"></b> <span class="fine" id="blkt"></span></div>
+<div class="box" id="card"><h3 id="cT"></h3><p id="cB"></p><button class="pri" data-c="back">Back</button> <button data-c="park">Park and go back</button> <button data-c="not_drift">Not drift</button>
+<div class="fine" style="margin-top:.4rem">Only you see this. <span id="cWhy"></span></div></div>
+<div class="box"><div class="lbl">Proposals (pending your decision)</div><div id="props"><span class="fine">none</span></div></div>
+<div class="box" style="display:flex;justify-content:space-between;align-items:center;gap:.4rem;flex-wrap:wrap">
+<span class="cap" id="cap"><i></i><span></span></span>
+<span><button id="pause">Pause</button> <button id="del">Delete</button></span></div>
+<div class="fine" id="notif"></div><div class="fine" id="msg"></div>
+<div class="fine" style="margin-top:.4rem">Demo: replay of fixtures/day.json. Web window, not a native menu-bar app <span class="mock">mock</span></div>
+</div><script>
+const $=s=>document.querySelector(s),Q=new URLSearchParams(location.search),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS=JSON.parse(localStorage.vdaWidget||'{}');let decisions=LS.decisions||{},paused=!!LS.paused,shown=new Set(LS.shown||[]),muted=Q.get('muted')==='1';
+const save=()=>localStorage.vdaWidget=JSON.stringify({decisions,paused,shown:[...shown]});
+let S={mode:Q.get('mode')||'with',t:`2026-10-30T${Q.get('t')||'11:50'}:00-05:00`,choice:Q.get('choice')||null},lastTick=0,busy=false;
+const bc='BroadcastChannel'in window?new BroadcastChannel('vda'):null;
+if(bc)bc.onmessage=e=>{if(e.data.type==='tick'){const m=e.data;if(m.t<S.t&&m.mode===S.mode&&!m.choice)shown.clear();S={mode:m.mode,t:m.t,choice:m.choice};lastTick=Date.now();}};
+// Standalone: advance own clock 1 sim-min/s when ?play=1 and no playback page is broadcasting.
+setInterval(()=>{if(Date.now()-lastTick>1500&&Q.get('play')==='1'&&!(S.choice==null&&cur?.nudge)){S.t=new Date(new Date(S.t).getTime()+60000-5*3600e3).toISOString().slice(0,16)+':00-05:00';}},1000);
+let cur=null;
+async function pull(){if(busy)return;busy=true;try{const u=`/api/widget?t=${encodeURIComponent(S.t)}&mode=${S.mode}&choice=${S.choice||''}&paused=${paused?1:''}&decisions=${encodeURIComponent(JSON.stringify(decisions))}`;cur=await fetch(u).then(r=>r.json());render(cur);}finally{busy=false}}
+setInterval(pull,400);
+function render(w){$('#clock').textContent=w.clock;$('#sync').textContent=Date.now()-lastTick<1500?'● synced to replay':'standalone';
+ $('#anchor').textContent=w.anchor?'Review '+w.anchor.context:'No anchor set yet';$('#anchorsub').textContent=w.anchor?`since ${w.anchor.since} · evidence ${w.anchor.evidence}`:(w.vespera_on?'':'Vespera off in this replay (without mode)');
+ $('#blk').style.display=w.block?'block':'none';if(w.block){$('#cd').textContent=w.block.remaining_min+' min';$('#blkt').innerHTML=`left · ${w.block.start}–${w.block.end} · other notifications held <span class="mock">mock</span>`;}
+ const c=$('#cap');c.className='cap '+w.capture.state;c.querySelector('span').textContent=({active:'capturing',paused:'paused',unknown:'unknown'})[w.capture.state]+': '+w.capture.label;$('#pause').textContent=paused?'Resume':'Pause';
+ // nudge: once per drift id; OS notification if granted, else in-widget card
+ const n=w.nudge;if(n&&!shown.has(n.id)){shown.add(n.id);save();notify(n);}
+ const showCard=n&&(Notification?.permission!=='granted'||muted||Q.get('fallback')==='1');$('#card').style.display=showCard?'block':'none';
+ if(n){$('#cT').textContent=n.title;$('#cB').textContent=n.body;$('#cWhy').textContent=`Fallback card: notifications ${muted?'muted':(window.Notification?Notification.permission:'unsupported')}.`;}
+ $('#props').innerHTML=w.proposals.map(p=>`<div class="p"><div class="t ${p.status==='approved'?'ok':p.status==='rejected'?'rej':''}">${esc(p.title)}${p.mock?'<span class="mock">mock</span>':''}</div>${p.detail?`<div class="s">${esc(p.detail)}</div>`:''}
+ <div class="s">${p.status==='pending'?`<button data-a="approved" data-p="${p.id}">Approve</button> <button data-a="rejected" data-p="${p.id}">Reject</button>`:p.status}${p.delivery?' · <b>'+p.delivery+'</b>':''} <button data-why="${p.id}">Why?</button></div>
+ <div class="why" id="why-${p.id.replace(/\W/g,'_')}">Detector: ${esc(p.why.detector)} · rules: ${esc(p.why.rules.join(', '))} · evidence: ${esc(p.why.evidence.join(', ')||'—')}<br>Validator checks, quotes and model version: <span class="mock">stub</span></div></div>`).join('')||'<span class="fine">none</span>';
+ document.querySelectorAll('[data-why]').forEach(b=>{const id='#why-'+b.dataset.why.replace(/\W/g,'_');if(openWhy.has(id))$(id).style.display='block';});}
+const openWhy=new Set();
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.p){decisions[b.dataset.p]=b.dataset.a;save();pull();}
+ if(b.dataset.why){const id='#why-'+b.dataset.why.replace(/\W/g,'_');openWhy.has(id)?openWhy.delete(id):openWhy.add(id);$(id).style.display=openWhy.has(id)?'block':'none';}
+ if(b.dataset.c)decide(b.dataset.c);});
+function decide(c){S.choice=c==='not_drift'?'not_drift':'back';if(c==='park')decisions['park:side_quest']='approved';save();bc?.postMessage({type:'choice',choice:c});
+ $('#msg').textContent=c==='not_drift'?'Logged as your decision: not drift. Nothing is learned silently.':c==='park'?'Side-quest parked as a task. Back to the anchor.':'Back to the anchor.';pull();}
+$('#pause').onclick=()=>{paused=!paused;save();pull();};
+$('#del').onclick=()=>{decisions={};shown=new Set();paused=false;localStorage.removeItem('vdaWidget');$('#msg').textContent='Deleted this widget\'s local cache (decisions, shown nudges). Mock: no server-side sensing cache exists yet.';pull();};
+// Notifications: permission only on a user click; silent; actions via service worker where supported.
+function notifUI(){const p=window.Notification?Notification.permission:'unsupported';$('#notif').innerHTML=p==='granted'?`OS notifications on${muted?' (muted: using in-widget card)':''}.`:p==='denied'?'OS notifications blocked: using in-widget card.':p==='unsupported'?'No Notification API: using in-widget card.':'<button id="perm">Enable OS notifications</button> (otherwise in-widget card)';
+ const pb=$('#perm');if(pb)pb.onclick=async()=>{await Notification.requestPermission();notifUI();};}
+notifUI();
+let swReg=null;if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').then(r=>swReg=r).catch(()=>{});
+navigator.serviceWorker?.addEventListener('message',e=>e.data?.type==='nudge-action'&&decide(e.data.action||'back'));
+function notify(n){window.__lastNudge=n;if(!window.Notification||Notification.permission!=='granted'||muted)return;
+ const o={body:n.body,silent:true,tag:n.id,requireInteraction:true,actions:n.actions};
+ if(swReg?.showNotification)swReg.showNotification(n.title,o).catch(()=>{try{new Notification(n.title,{body:n.body,silent:true,tag:n.id})}catch{}});
+ else try{new Notification(n.title,{body:n.body,silent:true,tag:n.id})}catch{}}
+pull();
+</script></body></html>
