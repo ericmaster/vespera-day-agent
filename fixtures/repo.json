@@ -1,0 +1,5 @@
+[
+  {"ts":"2026-10-28T17:40:00-05:00","title":"commit 3f1a2c9: wip rate limiter","text":"wip rate limiter. TODO(dana): finish token bucket tests before the Friday release cut"},
+  {"ts":"2026-10-28T10:05:00-05:00","title":"issue #42: Export endpoint times out on large accounts","text":"Reported by Acme Logistics (fictional). Customer needs a fix before their audit on Nov 3. Assigned: dana"},
+  {"ts":"2026-10-27T15:12:00-05:00","title":"src/billing.ts TODO","text":"// TODO: remove legacy invoice path after migration review with Priya"}
+]

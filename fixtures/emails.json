@@ -1,0 +1,5 @@
+[
+  {"from":"priya.n@example.com","date":"2026-10-28T09:12:00-05:00","subject":"Migration review","body":"Hi Dana, can we do the billing migration review this week? I need your sign-off by Monday Nov 2 so finance can close the month."},
+  {"from":"events@example.org","date":"2026-10-27T18:00:00-05:00","subject":"Speaker slides due","body":"Reminder: slides for your Nov 6 meetup talk are due Wednesday Nov 4 at 17:00."},
+  {"from":"newsletter@example.net","date":"2026-10-28T06:00:00-05:00","subject":"Weekly digest","body":"Top 10 links this week. No action needed."}
+]

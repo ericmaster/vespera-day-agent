@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Vespera Day Agent</title>
+<style>body{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1b1b2f}
+.card{border:1px solid #ddd;border-radius:8px;padding:.8rem;margin:.5rem 0}.invalid{background:#fff3f3}.approved{background:#f0fff3}.rejected{opacity:.5}
+blockquote{margin:.3rem 0;padding-left:.6rem;border-left:3px solid #7a5cff;color:#444}button{margin-right:.4rem}</style></head><body>
+<h1>Vespera Day Agent</h1><p>You choose which sources the agent may read. Every proposed change shows its evidence and passes a deterministic validator. Nothing happens without your approval.</p>
+<h2>1. Grant sources</h2><div id="sources"></div><p id="model"></p>
+<h2>2. Run agent</h2><button id="run">Plan my days</button> <span id="status"></span><p id="summary"></p>
+<h2>3. Review proposals</h2><div id="proposals"></div>
+<script>
+const $=s=>document.querySelector(s), api=(u,b)=>fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}).then(r=>r.json());
+async function loadSources(){const d=await api('/api/sources');$('#model').textContent=`Model: ${d.model} · API key ${d.keyConfigured?'configured':'missing'}`;
+ $('#sources').innerHTML=d.sources.map(s=>`<label class="card" style="display:block"><input type="checkbox" data-id="${s.id}" ${s.granted?'checked':''}> <b>${s.kind}</b> ${s.label}</label>`).join('');
+ document.querySelectorAll('[data-id]').forEach(c=>c.onchange=()=>api('/api/grants',{id:c.dataset.id,granted:c.checked}));}
+async function loadProposals(){const {proposals}=await api('/api/proposals');$('#proposals').innerHTML=proposals.map(p=>`<div class="card ${p.status}">
+ <b>${p.type}</b>: ${p.summary||''} <small>[${p.status}]</small><pre>${JSON.stringify(p.payload,null,1)}</pre>
+ ${p.evidence.map(e=>`<blockquote>“${e.quote}” <small>${e.source_id} / ${e.item_id} ${e.verified?'✔ verified':'✘ not found'}</small></blockquote>`).join('')}
+ ${p.validation.errors.length?`<p>Validator: ${p.validation.errors.join('; ')}</p>`:''}
+ ${p.status==='pending'?`<button onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';}
+async function act(id,a){await api(`/api/proposals/${id}/${a}`,{});loadProposals();}
+$('#run').onclick=async()=>{$('#status').textContent='running…';const r=await api('/api/run',{});$('#status').textContent=r.error||`done (${r.trace?.length||0} tool calls)`;$('#summary').textContent=r.summary||'';loadProposals();};
+loadSources();loadProposals();
+</script></body></html>

@@ -1,0 +1,15 @@
+{
+  "name": "vespera-day-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Per-source consent + evidence-backed, validated calendar/task proposals, powered by Meta Muse Spark.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/",
+    "smoke": "node scripts/smoke-tool-call.js",
+    "agent": "node src/agent.js"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

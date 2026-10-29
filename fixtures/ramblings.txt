@@ -1,0 +1,3 @@
+ok note to self: I promised Marco the limiter by Friday noon, and the export fix for Acme has to land before their audit on Nov 3. Probably need a solid two hour block for the export pagination.
+
+Also the meetup slides, Wednesday. And I keep forgetting to reply to Priya about the migration review.
