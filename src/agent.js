@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { toolSchemas, makeToolbox } from './tools.js';
 import { adapters } from './adapters/index.js';
 import { createGrants } from './grants.js';
+import { runOffline } from './offline-agent.js';
 
 const SYSTEM = `You are Vespera Day Agent. You read ONLY the sources the user granted (call list_granted_sources first).
 Extract commitments, open loops, deadlines and calendar conflicts, then call propose_change once per concrete change.
@@ -21,9 +22,11 @@ export async function chat(messages, tools) {
   return r.json();
 }
 
-export async function runAgent(grants, store, { maxSteps = 12, log = () => {} } = {}) {
-  if (!config.apiKey) throw new Error('MODEL_API_KEY not set (see .env.example)');
-  const tb = makeToolbox(grants, store);
+export const isOffline = () => !config.apiKey || process.env.OFFLINE === '1';
+
+export async function runAgent(grants, store, { maxSteps = 12, log = () => {}, state } = {}) {
+  const tb = makeToolbox(grants, store, state);
+  if (isOffline()) return { ...runOffline(tb, { log }), offline: true, proposals: store };
   const messages = [{ role: 'system', content: SYSTEM }, { role: 'user', content: 'Plan my next working days from my granted sources.' }];
   for (let step = 0; step < maxSteps; step++) {
     const msg = (await chat(messages, toolSchemas)).choices[0].message;
