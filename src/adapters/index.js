@@ -1,18 +1,18 @@
 // Source adapters. Each adapter: { id, kind, label, items(state?) }
 // Item: { id, source_id, ts, title, text }. Calendar, tasks and notes read the live
 // local state when given one, so approved changes and new voice notes show up.
-import { readFileSync } from 'node:fs';
+import { readText } from '../files.js';
 import { join } from 'node:path';
 import { githubItems } from './github.js';
 import { liveEvents } from './github-live.js';
 
 const F = (p) => join(process.env.FIXTURES_DIR || 'fixtures', p);
-export const json = (p) => JSON.parse(readFileSync(F(p), 'utf8'));
+export const json = (p) => JSON.parse(readText(F(p)));
 // Intraday activity (fixtures/day.json) is split back into its own source, so consent still applies per source.
 // With a state, only events up to the simulated clock (state.now) are visible.
 const dayFor = (id, st) => json('day.json').filter((e) => e.source_id === id && (!st?.now || new Date(e.ts) <= new Date(st.now)))
   .map((e) => ({ id: e.id, source_id: id, ts: e.ts, title: `${e.context} (${e.action})`, text: e.text }));
-const fixtureNotes = () => readFileSync(F('ramblings.txt'), 'utf8').split(/\n\s*\n/).map((t, i) => ({ id: `note-${i}`, source_id: 'notes:ramblings', title: t.slice(0, 50), ts: null, text: t.trim() }));
+const fixtureNotes = () => readText(F('ramblings.txt')).split(/\n\s*\n/).map((t, i) => ({ id: `note-${i}`, source_id: 'notes:ramblings', title: t.slice(0, 50), ts: null, text: t.trim() }));
 
 export const adapters = [
   { id: 'repo:orbit-api', kind: 'repo', label: 'Local git repo: orbit-api (commits, TODOs, issues)',
@@ -26,7 +26,7 @@ export const adapters = [
   { id: 'chat:team', kind: 'chat', label: 'Team chat export',
     items: (st) => json('chat.json').map((x, i) => ({ id: `chat-${i}`, source_id: 'chat:team', title: `${x.user} in #${x.channel}`, ts: x.ts, text: x.text })).concat(dayFor('chat:team', st)) },
   { id: 'agent:coding-sessions', kind: 'agent-transcript', label: 'Coding-agent session transcripts',
-    items: (st) => readFileSync(F('agent-session.md'), 'utf8').split(/\n(?=## )/).map((t, i) => ({ id: `agent-${i}`, source_id: 'agent:coding-sessions', title: t.split('\n')[0].replace(/^#+\s*/, ''), ts: null, text: t })).concat(dayFor('agent:coding-sessions', st)) },
+    items: (st) => readText(F('agent-session.md')).split(/\n(?=## )/).map((t, i) => ({ id: `agent-${i}`, source_id: 'agent:coding-sessions', title: t.split('\n')[0].replace(/^#+\s*/, ''), ts: null, text: t })).concat(dayFor('agent:coding-sessions', st)) },
   { id: 'notes:ramblings', kind: 'ramblings', label: 'Voice/text brain-dumps',
     items: (st) => [...fixtureNotes(), ...(st ? st.notes : [])] },
   { id: 'calendar:main', kind: 'calendar', label: 'Calendar',

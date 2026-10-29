@@ -1,5 +1,7 @@
 # Vespera Day Agent
 
+**Live demo:** https://vespera-day-agent.ericmaster.workers.dev (Cloudflare Worker + one Durable Object holding the shared demo state; simulated day fixtures + a snapshot of `ericmaster/vda-demo-target`; model key is a Worker secret). "Check now" makes a real model call (~1 min), limited to one run at a time, 20 s per client and 30 per hour; over the limit it runs the labeled offline fallback. Deploy: `npx wrangler deploy` + `npx wrangler secret put MODEL_API_KEY`.
+
 **It doesn't measure your hours, it measures whether you got to review.**
 
 AI agents write most of the code now; the dev's job is to review it, and the review queue keeps growing while every ping pulls you out of the PR. Vespera is a dev-owned monitor: from sources *you* grant (chat, email, coding-agent sessions, PRs/commits) it builds a context-switch timeline and tracks the one number that matters, **items closed with proper review** (PR reviewed before merge, agent session closed with tests run). During the day a Meta **Muse Spark** agent raises evidence-backed alerts and proposes no-interrupt review/testing blocks and a team status draft. A deterministic validator checks every proposal (metric values must match, quotes must be verbatim, no calendar conflicts, workflow language only), and you approve each one. Nothing is sent; there is no manager view.

@@ -1,7 +1,7 @@
 // Read-only GitHub source via the gh CLI (issues + recent commits).
 // Falls back to fixtures/github.json when GITHUB_REPO is unset or gh fails.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readText } from '../files.js';
 import { join } from 'node:path';
 
 let cache = null;
@@ -20,7 +20,7 @@ export function githubItems(repo = process.env.GITHUB_REPO) {
       mode = 'live';
     } catch { raw = null; }
   }
-  if (!raw) raw = JSON.parse(readFileSync(join(process.env.FIXTURES_DIR || 'fixtures', 'github.json'), 'utf8'));
+  if (!raw) raw = JSON.parse(readText(join(process.env.FIXTURES_DIR || 'fixtures', 'github.json')));
   cache = raw.map((x, i) => ({ id: `gh-${i}`, source_id: 'github:repo', ...x }));
   cache.mode = mode;
   return cache;

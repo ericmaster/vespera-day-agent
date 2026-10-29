@@ -1,0 +1,18 @@
+{
+  // Hosted demo: `npx wrangler deploy`. Secret: `npx wrangler secret put MODEL_API_KEY`.
+  "name": "vespera-day-agent",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "rules": [{ "type": "Text", "globs": ["**/*.json", "**/*.txt", "**/*.md", "**/*.html"], "fallthrough": false }],
+  "durable_objects": { "bindings": [{ "name": "DEMO", "class_name": "DemoApp" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DemoApp"] }],
+  "vars": {
+    "MODEL_BASE_URL": "https://api.kilo.ai/api/gateway",
+    "MODEL_NAME": "meta/muse-spark-1.3",
+    "GITHUB_LIVE_REPO": "ericmaster/vda-demo-target",
+    "GITHUB_LIVE_SNAPSHOT": "1",
+    "RUN_CAP_PER_HOUR": "30",
+    "RUN_COOLDOWN_SEC": "20"
+  }
+}

@@ -2,6 +2,7 @@
 // viewed files and CI check runs into the same day-event model as fixtures/day.json, so the
 // drift and rubber-stamp detectors run unchanged on real data. Off until the user grants it.
 import { execFileSync } from 'node:child_process';
+import { readText } from '../files.js';
 
 const Q = `query($o:String!,$n:String!){repository(owner:$o,name:$n){
  issues(last:30){nodes{number title body createdAt author{login}
@@ -65,6 +66,11 @@ let cache = null;
 export function liveEvents(repo = process.env.GITHUB_LIVE_REPO, { refresh = false } = {}) {
   if (!repo || process.env.OFFLINE_GITHUB === '1') return [];
   if (cache && !refresh) return cache;
+  if (process.env.GITHUB_LIVE_SNAPSHOT === '1') {
+    // Hosted demo (no gh CLI): serve the committed snapshot of the same repo.
+    cache = mapRepo(repo, JSON.parse(readText('fixtures/github-live-sample.json'))); cache.error = null; cache.snapshot = true;
+    return cache;
+  }
   try {
     const [o, n] = repo.split('/');
     const raw = execFileSync('gh', ['api', 'graphql', '-f', `query=${Q}`, '-F', `o=${o}`, '-F', `n=${n}`], { encoding: 'utf8', timeout: 20000 });
@@ -72,4 +78,4 @@ export function liveEvents(repo = process.env.GITHUB_LIVE_REPO, { refresh = fals
   } catch (e) { cache = []; cache.error = e.message.slice(0, 200); }
   return cache;
 }
-export const liveStatus = () => ({ repo: process.env.GITHUB_LIVE_REPO || null, events: cache?.length ?? null, error: cache?.error ?? null });
+export const liveStatus = () => ({ repo: process.env.GITHUB_LIVE_REPO || null, events: cache?.length ?? null, snapshot: !!cache?.snapshot, error: cache?.error ?? null });
