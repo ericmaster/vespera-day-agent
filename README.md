@@ -20,16 +20,11 @@ Built for the Meta Global AI Developer Hackathon (Cerebral Valley, indie track).
 - Guardrail: proposals with health/wellness language are rejected by the validator.
 - UI: core-metric card, Task drift and Review evidence panels, before → now card (since the first check), timeline (↯ = switch), simulated clock + **Check now**, drafts panel.
 
-## 3-minute demo
-| Time | Do | Show / say |
-|---|---|---|
-| 0:00 | Title | "Agents write the code. Reviewing it is the job. Faros: 31% more PRs merge with no review." |
-| 0:15 | All sources off; grant chat, GitHub, agent sessions, email, calendar, tasks | Consent log; one ungranted read blocked in red. "The dev owns the data." |
-| 0:35 | Clock 11:30 → Check now | Card: 1/7 closed with proper review. Review evidence: PR #47 "marked reviewed, evidence missing": 800 lines in 40 s, agent said "all tests pass", no CI log |
-| 1:05 | Clock 12:30 → Check now | Task drift: 31 min on the middleware refactor while PR #44 was assigned; trigger = AI remark "want me to refactor it?" |
-| 1:30 | Muse Spark trace | `get_day_metrics` → alerts quoting the trigger and the 40 s approval; one malformed alert rejected, then fixed |
-| 1:55 | Approve: parked side-quest, PR #47 checklist, no-interrupt review block, #release draft | Calendar 🚫 block; checklist ☐; draft "not sent"; before → now card updates |
-| 2:35 | Close | "It doesn't measure your hours, it measures whether you got to review." Deterministic detectors, Muse Spark phrases and proposes, validator checks, you approve. |
+## Live GitHub (read-only)
+`GITHUB_LIVE_REPO=owner/name` adds the source **GitHub LIVE** (off until granted). One `gh api graphql` read maps issues, assignments, PRs, reviews, inline comments, viewed files and CI check runs into the same event model, so both detectors run unchanged on real data. Demo target: [ericmaster/vda-demo-target](https://github.com/ericmaster/vda-demo-target), with real PR #3 (rubber-stamped) and PR #4 (CI + review), and a real 17-min drift. Decisions and evidence: [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Demo
+`npm run demo:serve` (UI, live repo) · `npm run demo` (scripted run in the terminal) · script: [docs/DEMO.md](docs/DEMO.md). Without a model key or on API error, the scripted agent runs as a labelled fallback.
 
 ## How consent works
 - Every source (git repo, email, chat, coding-agent transcripts, voice/text notes, calendar, task list) starts **off**.

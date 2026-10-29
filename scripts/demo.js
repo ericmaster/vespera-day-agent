@@ -31,7 +31,7 @@ const before = m();
 say('Check now: agent run');
 const r = await runAgent(g, store, { state, log: (l) => console.log('  tool:', l.tool) });
 console.log(r.offline ? `  OFFLINE FALLBACK${r.fallback ? ' (model error: ' + r.fallback + ')' : ''}` : '  LIVE Muse Spark');
-for (const p of store) console.log(`  ${p.status === 'pending' ? '✔' : '✘'} ${p.id} ${p.type}: ${p.summary}${p.validation.errors.length ? ' [' + p.validation.errors.join('; ') + ']' : ''}`);
+for (const p of store) console.log(`  ${p.status === 'pending' ? '✔' : '✘'} ${p.id} ${p.type}: ${p.payload.message || p.payload.title || p.payload.text || p.summary} ⟵ ${p.evidence.map((e) => e.item_id).join(",")}${p.validation.errors.length ? ' [' + p.validation.errors.join('; ') + ']' : ''}`);
 say('Approve: drift + rubber-stamp alerts, parked side-quest, checklist, no-interrupt block, team draft');
 const tb = makeToolbox(g, store, state);
 for (const p of store.filter((x) => x.status === 'pending' && (x.payload.parked || x.payload.checklist || x.payload.no_interrupt || x.type === 'team_status_draft' || ['drift_minutes_max', 'rubber_stamp_reviews'].includes(x.payload.metric))))

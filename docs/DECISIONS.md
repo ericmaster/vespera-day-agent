@@ -12,3 +12,6 @@ One row per decision. Evidence = what we observed or a source; `[hyp]` = team hy
 | 7 | Oct 29 | On a solo repo a COMMENTED review counts as the approval signal | GitHub does not allow approving your own PR; real data has only COMMENTED reviews ⚠ |
 | 8 | Oct 29 | PR linked to an issue via "Closes #N" shares the issue's context; issue assignment = anchor; "Noticed while working on #N" = self trigger | Lets the same detectors run on real data without new rules; keyword rule is simple, may miss phrasing ⚠ |
 | 9 | Oct 29 | Offline scripted agent is a fallback: live Muse Spark first, fallback on API error, labelled in UI | Kit lesson: a build silently fell back to simulated mode (hackathon-kit LESSONS); demo must survive API failure |
+| 10 | Oct 29 | Mixed real (Oct 29) + fixture (Fri Oct 30) days in one timeline; a drift never spans days or a new anchor | First demo run showed a live drift of 1501 min running into the fixture day; validator rejected the alert (demo log, Oct 29) |
+| 11 | Oct 29 | Agent step limit 12 → 24 | Live run stopped at 12 steps before the block and draft were proposed (agent run, Oct 29) |
+| 12 | Oct 29 | Known gap: the validator checks the metric value, not every number in the alert's free text | Live run: drift alert for #2 said "up to 31 min max" (31 is the overall max, #2 was 17) ⚠ |
