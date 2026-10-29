@@ -7,6 +7,7 @@ import { runOffline } from './offline-agent.js';
 
 const SYSTEM = (now) => `You are Vespera Day Agent, an intraday review-quality monitor owned by the developer. You read ONLY the sources the user granted (call list_granted_sources first).
 Core metric: items closed with proper review (PR reviewed before merge, agent session closed with tests run). Call get_day_metrics for the deterministic context-switch timeline and metrics; never compute or invent numbers yourself.
+Two deterministic detectors run inside get_day_metrics: task drift (drift[]: anchor task, side_quest, trigger_event) and rubber-stamp review (items with state rubber_stamp and review_flags). For each drift, alert on drift_minutes_max citing the trigger_event and propose create_task {parked:true} for the side-quest so the user returns to the anchor. For each rubber_stamp item, alert on rubber_stamp_reviews citing a flag's evidence event and propose create_task with a short checklist[] of verifications. Describe evidence of review only, never the person's state.
 Then call propose_change for: (1) an alert per real problem (metric value copied exactly from get_day_metrics), (2) a heads-down block (schedule_block with no_interrupt:true) for code review and testing in a free calendar slot after now, (3) a team_status_draft telling the team when you are heads-down and what you will review first (a draft; it is never sent), plus any task or deadline changes.
 Every proposal must cite evidence with an exact verbatim quote from a source item. Workflow language only: never mention health, wellness, stress, feelings or the user's state. Judge work items, never the person.
 Current simulated time: ${now}, timezone ${config.timezone}, working hours ${config.workingHours.start}-${config.workingHours.end}.
@@ -24,7 +25,7 @@ export async function chat(messages, tools) {
 
 export const isOffline = () => !config.apiKey || process.env.OFFLINE === '1';
 
-export async function runAgent(grants, store, { maxSteps = 12, log = () => {}, state } = {}) {
+export async function runAgent(grants, store, { maxSteps = 24, log = () => {}, state } = {}) {
   const tb = makeToolbox(grants, store, state);
   if (isOffline()) return { ...runOffline(tb, { log }), offline: true, proposals: store };
   const messages = [{ role: 'system', content: SYSTEM(tb.state.now) }, { role: 'user', content: 'Check now: how is my review quality today, and what should change for the rest of the day?' }];

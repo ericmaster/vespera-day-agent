@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { adapters } from '../src/adapters/index.js';
 import { createGrants } from '../src/grants.js';
 import { makeToolbox } from '../src/tools.js';
-import { computeDay, dayEvents } from '../src/metrics.js';
+import { computeDay, dayEvents, detectDrift, reviewFlags } from '../src/metrics.js';
 import { createState, approve } from '../src/state.js';
 import { runOffline } from '../src/offline-agent.js';
 
@@ -15,7 +15,7 @@ const alert = (metric, value, evidence = [{ source_id: 'chat:team', item_id: 'd1
 
 test('metrics: switches, closed with proper review, backlog at 11:30', () => {
   const m = computeDay(dayEvents(), ALL, NOON).metrics;
-  assert.deepEqual(m, { switches_total: 20, switches_max_per_hour: 9, opened: 6, closed_with_review: 1, closed_without_review: 2, review_backlog: 2 });
+  assert.deepEqual(m, { switches_total: 21, switches_max_per_hour: 9, opened: 7, closed_with_review: 1, closed_without_review: 2, rubber_stamp_reviews: 1, review_backlog: 2, drift_minutes_max: 0 });
 });
 test('metrics respect the simulated clock', () => {
   assert.equal(computeDay(dayEvents(), ALL, '2026-10-30T09:30:00-05:00').metrics.closed_with_review, 0);
@@ -55,4 +55,38 @@ test('offline check-now: alerts, heads-down block and draft all validate; approv
   const dr = store.find((p) => p.type === 'team_status_draft');
   approve(store, dr.id, st, tb.ctx);
   assert.equal(st.drafts[0].sent, false);
+});
+
+const LATE = '2026-10-30T12:30:00-05:00';
+test('drift: AI remark during PR #44 review starts a 31-min side-quest citing the trigger', () => {
+  const [d] = computeDay(dayEvents(), ALL, LATE).drift;
+  assert.equal(d.anchor, 'PR #44 auth ownership check'); assert.equal(d.side_quest, 'Session middleware refactor');
+  assert.equal(d.trigger, 'ai_remark'); assert.equal(d.trigger_event, 'd29'); assert.equal(d.minutes, 31);
+  assert.deepEqual(d.anchor_evidence, ['d03', 'd28']);
+});
+test('drift: threshold is configurable and ongoing drift counts up to now', () => {
+  assert.equal(computeDay(dayEvents(), ALL, LATE, { driftMinutes: 40 }).drift.length, 0);
+  assert.equal(computeDay(dayEvents(), ALL, '2026-10-30T12:00:00-05:00').drift[0].minutes, 19);
+});
+test('drift: no trigger, no drift; no anchor, no drift', () => {
+  const t = (id, ts, context, extra = {}) => ({ id, ts: `2026-10-30T${ts}:00-05:00`, context, source_id: 's', action: 'work', ...extra });
+  assert.equal(detectDrift([t('a', '10:00', 'A', { action: 'anchor_start' }), t('b', '10:05', 'B'), t('c', '10:40', 'A')]).length, 0);
+  assert.equal(detectDrift([t('b', '10:05', 'B', { trigger: 'mention' }), t('c', '10:40', 'A')]).length, 0);
+  assert.equal(detectDrift([t('a', '10:00', 'A', { action: 'anchor_start' }), t('b', '10:05', 'B', { trigger: 'self' }), t('c', '10:40', 'A')])[0].minutes, 35);
+});
+test('rubber stamp: PR #47 (800 lines in 40 s, claimed tests, no CI) is not closed with proper review', () => {
+  const it = computeDay(dayEvents(), ALL, LATE).items.find((i) => i.context.startsWith('PR #47'));
+  assert.equal(it.state, 'rubber_stamp');
+  assert.deepEqual(it.review_flags.map((f) => f.rule), ['too_fast', 'no_ci', 'unverified_claim', 'no_review_activity']);
+  assert.equal(computeDay(dayEvents(), ALL, LATE).items.find((i) => i.context.startsWith('PR #41')).state, 'closed_with_review');
+});
+test('rubber stamp: a slow approval with CI and comments passes', () => {
+  assert.deepEqual(reviewFlags([{ id: 'x', action: 'ci_run', source_id: 'github:repo', text: 'ok' }, { id: 'y', action: 'approved', lines: 300, review_seconds: 600, review_comments: 2, files_viewed: 4, source_id: 'github:repo', text: '' }]), []);
+});
+test('detector alerts must cite detector evidence', () => {
+  const tb = makeToolbox(grantAll(), [], createState());
+  const bad = tb.propose_change(alert('drift_minutes_max', 31));
+  assert.match(bad.errors.join(), /must cite detector evidence \(d29\)/);
+  const ok = tb.propose_change(alert('drift_minutes_max', 31, [{ source_id: 'agent:coding-sessions', item_id: 'd29', quote: 'want me to refactor it?' }]));
+  assert.equal(ok.status, 'pending');
 });

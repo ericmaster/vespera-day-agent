@@ -31,8 +31,12 @@ _Updated Oct 30, 2026 (pivot to review quality). Follows the hackathon-kit flow.
 - **Pain, their words [team hypothesis, not interviews]:** "I spend the day approving things I can't review properly." "Every ping pulls me out of the PR." Real fear: merging code that wasn't properly reviewed (consistent with rows 2 and 9).
 - **Problem:** review demand grew with AI output (rows 1–3) while the reviewer's day is fragmented by pings (rows 5–6). Existing tools measure hours or apps, or team git stats; none shows the dev, intraday and with evidence, what got closed without review and when to protect review time.
 
+### Detectors (from the reference senior dev's input, Oct 29 [team hypothesis])
+- What pulls him off task: an assigned task (evidenced in email, chat or an issue), then an AI remark, a mention or his own discovery starts a rabbit hole → **task-drift detector**.
+- Review risk: a task gets marked reviewed and the AI's work is assumed correct without validations → **rubber-stamp detector** (approval speed vs diff size, CI run, unverified "tests pass" claims, comments/files viewed). Framed only as evidence of review, never as a personal state.
+
 ## 3. Hypothesis (falsifiable)
-> For the persona, an intraday "check now" that shows switches/hour, items closed with vs. without proper review, and review backlog, plus one approved heads-down review block and a team status draft, raises **items closed with proper review per day** and cuts **switches/hour inside the block to ≤2**, with 0 approved changes that conflict with the calendar.
+> For the persona, an intraday "check now" that shows switches/hour, items closed with vs. without proper review, and review backlog, plus one approved heads-down review block and a team status draft, raises **items closed with proper review per day**, cuts **rubber-stamped reviews** and **drift minutes away from the anchor task**, and cuts **switches/hour inside the block to ≤2**, with 0 approved changes that conflict with the calendar.
 
 Measured per day: `closed_with_review / opened`, `closed_without_review`, `review_backlog` at end of day, `switches_max_per_hour`, approved heads-down blocks. Falsified if, over 5 workdays of a pilot user, closed-with-review does not rise vs. their prior 5 days, or switches inside blocks stay >2/h. In-app today only on fixtures: at 11:30 the fixture day shows **1/6 closed with proper review**, 2 closed without review/tests, backlog 2, 20 switches (max 9/h).
 
@@ -47,6 +51,8 @@ Fri 11:30 on a fixture day: 6 work items, 22 events across chat, email, agent se
 ## 6. Status vs. hypothesis (Nov 3 cutoff)
 | Done | Next (impact ÷ effort) |
 |---|---|
-| Timeline + 6 metrics from granted sources only; alerts validated against computed values; heads-down `no_interrupt` blocks; team status drafts never sent; banned-language guardrail; simulated clock + Check now; 29 tests | 1. End-of-day before/after card (S). 2. Live GitHub PR review state via `gh` into the timeline (M). 3. Eval script: gold alerts per clock time (S). 4. Live Muse Spark run recorded for the video (S) |
+| Drift + rubber-stamp detectors; before → now card; timeline + 8 metrics from granted sources only; alerts validated against computed values; heads-down `no_interrupt` blocks; team status drafts never sent; banned-language guardrail; simulated clock + Check now; 35 tests | 1. Live GitHub PR review state via `gh` into the timeline (M). 3. Eval script: gold alerts per clock time (S). 4. Live Muse Spark run recorded for the video (S) |
 
 Live run (Oct 29, Muse Spark `meta/muse-spark-1.3` via Kilo gateway, all sources granted, clock 11:30): 16 tool calls, 6 proposals (3 alerts, 1 no-interrupt block 11:30–13:00, 1 #release draft, 1 task), **6/6 passed the validator**.
+
+Live run 2 (Oct 29, same setup, clock 12:30, 24-step limit): 17 tool calls, 8 proposals: drift alert citing trigger d29 + parked task, rubber-stamp alert citing d26 + PR #47 checklist, 2 more alerts, no-interrupt block 13:00–14:30, #release draft. **8/8 passed the validator.** (An earlier run at a 12-step limit showed one malformed alert rejected and then re-proposed correctly.)

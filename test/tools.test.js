@@ -17,8 +17,8 @@ test('granted source is readable and query filters', () => {
 test('propose_change verifies quote against the cited item', () => {
   const g = createGrants(adapters); g.set('chat:team', true); g.set('calendar:main', true);
   const store = []; const tb = makeToolbox(g, store);
-  const ok = tb.propose_change({ type: 'schedule_block', summary: 'limiter', payload: { title: 'Merge limiter', start: '2026-10-30T12:00:00-05:00', end: '2026-10-30T12:30:00-05:00' }, evidence: [{ source_id: 'chat:team', item_id: 'chat-1', quote: "I'll get it merged by Friday noon" }] });
+  const ok = tb.propose_change({ type: 'schedule_block', summary: 'limiter', payload: { title: 'Merge limiter', start: '2026-10-30T16:00:00-05:00', end: '2026-10-30T16:30:00-05:00' }, evidence: [{ source_id: 'chat:team', item_id: 'chat-1', quote: "I'll get it merged by Friday noon" }] });
   assert.equal(ok.status, 'pending');
-  const bad = tb.propose_change({ type: 'schedule_block', summary: 'x', payload: { title: 'x', start: '2026-10-30T13:00:00-05:00', end: '2026-10-30T14:00:00-05:00' }, evidence: [{ source_id: 'chat:team', item_id: 'chat-1', quote: 'made up text' }] });
+  const bad = tb.propose_change({ type: 'schedule_block', summary: 'x', payload: { title: 'x', start: '2026-10-30T16:30:00-05:00', end: '2026-10-30T17:30:00-05:00' }, evidence: [{ source_id: 'chat:team', item_id: 'chat-1', quote: 'made up text' }] });
   assert.equal(bad.status, 'invalid');
 });

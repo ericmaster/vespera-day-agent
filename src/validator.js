@@ -25,6 +25,9 @@ export function validateProposal(p, ctx) {
     if (!(pl.metric in m)) errors.push(`unknown metric ${pl.metric}`);
     else if (pl.value !== m[pl.metric]) errors.push(`metric ${pl.metric} is ${m[pl.metric]}, not ${pl.value}`);
     if (!pl.message) errors.push('message required');
+    // Detector alerts must cite the detector's own evidence (drift trigger / review-flag event).
+    const need = ctx.detectorEvidence?.[pl.metric];
+    if (need && !(p.evidence || []).some((e) => need.includes(e.item_id))) errors.push(`${pl.metric} alert must cite detector evidence (${need.join(', ') || 'none found'})`);
   }
   if (p.type === 'team_status_draft' && (!pl.text || !pl.channel)) errors.push('channel and text required');
   if ((p.type === 'schedule_block' || p.type === 'move_event') && ctx.now && pl.start && new Date(pl.start) < new Date(ctx.now)) errors.push('block starts before now');

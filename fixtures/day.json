@@ -1,24 +1,297 @@
 [
- {"id":"d01","ts":"2026-10-30T08:35:00-05:00","source_id":"agent:coding-sessions","context":"PR #41 rate limiter","action":"session_started","text":"Agent session started: finish token bucket and open PR #41."},
- {"id":"d02","ts":"2026-10-30T08:50:00-05:00","source_id":"github:repo","context":"PR #41 rate limiter","action":"pr_opened","text":"PR #41 opened by agent: token bucket limiter, 612 lines changed."},
- {"id":"d03","ts":"2026-10-30T08:55:00-05:00","source_id":"chat:team","context":"PR #44 auth ownership check","action":"review_requested","text":"leo: @dana can you review PR #44 today? it touches auth"},
- {"id":"d04","ts":"2026-10-30T09:05:00-05:00","source_id":"email:work","context":"Billing migration sign-off","action":"ping","text":"Priya: reminder, billing migration sign-off is still open"},
- {"id":"d05","ts":"2026-10-30T09:12:00-05:00","source_id":"agent:coding-sessions","context":"PR #43 export pagination","action":"session_started","text":"Agent session started: cursor pagination for /export."},
- {"id":"d06","ts":"2026-10-30T09:20:00-05:00","source_id":"chat:team","context":"PR #41 rate limiter","action":"ping","text":"marco: is the limiter still on track for noon?"},
- {"id":"d07","ts":"2026-10-30T09:24:00-05:00","source_id":"github:repo","context":"PR #43 export pagination","action":"pr_opened","text":"PR #43 opened by agent: cursor pagination, 480 lines changed."},
- {"id":"d08","ts":"2026-10-30T09:31:00-05:00","source_id":"github:repo","context":"PR #45 dependency bumps","action":"review_requested","text":"Review requested from dana on PR #45: bump 14 dependencies."},
- {"id":"d09","ts":"2026-10-30T09:38:00-05:00","source_id":"chat:team","context":"PR #44 auth ownership check","action":"ping","text":"leo: PR #44 is blocking the QA build, any ETA?"},
- {"id":"d10","ts":"2026-10-30T09:44:00-05:00","source_id":"agent:coding-sessions","context":"PR #41 rate limiter","action":"work","text":"Agent: burst traffic integration tests still missing in limiter.test.ts."},
- {"id":"d11","ts":"2026-10-30T09:50:00-05:00","source_id":"email:work","context":"Billing migration sign-off","action":"work","text":"Opened billing migration doc, read section 2 of 5."},
- {"id":"d12","ts":"2026-10-30T09:55:00-05:00","source_id":"chat:team","context":"PR #43 export pagination","action":"ping","text":"ana: customer asked again about the export timeout"},
- {"id":"d13","ts":"2026-10-30T10:02:00-05:00","source_id":"github:repo","context":"PR #45 dependency bumps","action":"closed","verified":false,"text":"PR #45 merged by dana without review comments; CI skipped."},
- {"id":"d14","ts":"2026-10-30T10:10:00-05:00","source_id":"agent:coding-sessions","context":"PR #43 export pagination","action":"work","text":"Agent: pagination done, tests not run yet."},
- {"id":"d15","ts":"2026-10-30T10:15:00-05:00","source_id":"chat:team","context":"PR #44 auth ownership check","action":"ping","text":"leo: pinging again on PR #44"},
- {"id":"d16","ts":"2026-10-30T10:22:00-05:00","source_id":"agent:coding-sessions","context":"PR #41 rate limiter","action":"closed","verified":true,"text":"Agent session closed: burst tests added, npm test passed, PR #41 reviewed and merged."},
- {"id":"d17","ts":"2026-10-30T10:30:00-05:00","source_id":"email:work","context":"Billing migration sign-off","action":"ping","text":"Priya: can we do the sign-off before Monday?"},
- {"id":"d18","ts":"2026-10-30T10:41:00-05:00","source_id":"github:repo","context":"PR #46 webhook retries","action":"review_requested","text":"Review requested from dana on PR #46: webhook retries, 350 lines changed."},
- {"id":"d19","ts":"2026-10-30T10:48:00-05:00","source_id":"agent:coding-sessions","context":"PR #43 export pagination","action":"closed","verified":false,"text":"Agent session closed with tests not run; PR #43 still waiting for review."},
- {"id":"d20","ts":"2026-10-30T10:55:00-05:00","source_id":"chat:team","context":"PR #46 webhook retries","action":"ping","text":"sam: could you look at #46 before lunch?"},
- {"id":"d21","ts":"2026-10-30T11:05:00-05:00","source_id":"chat:team","context":"PR #44 auth ownership check","action":"ping","text":"leo: QA is waiting on PR #44"},
- {"id":"d22","ts":"2026-10-30T11:20:00-05:00","source_id":"email:work","context":"Billing migration sign-off","action":"work","text":"Opened billing migration doc again, read section 3 of 5."}
+ {
+  "id": "d01",
+  "ts": "2026-10-30T08:35:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #41 rate limiter",
+  "action": "session_started",
+  "text": "Agent session started: finish token bucket and open PR #41."
+ },
+ {
+  "id": "d02",
+  "ts": "2026-10-30T08:50:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #41 rate limiter",
+  "action": "pr_opened",
+  "text": "PR #41 opened by agent: token bucket limiter, 612 lines changed."
+ },
+ {
+  "id": "d03",
+  "ts": "2026-10-30T08:55:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "review_requested",
+  "text": "leo: @dana can you review PR #44 today? it touches auth"
+ },
+ {
+  "id": "d04",
+  "ts": "2026-10-30T09:05:00-05:00",
+  "source_id": "email:work",
+  "context": "Billing migration sign-off",
+  "action": "ping",
+  "text": "Priya: reminder, billing migration sign-off is still open"
+ },
+ {
+  "id": "d05",
+  "ts": "2026-10-30T09:12:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #43 export pagination",
+  "action": "session_started",
+  "text": "Agent session started: cursor pagination for /export."
+ },
+ {
+  "id": "d06",
+  "ts": "2026-10-30T09:20:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #41 rate limiter",
+  "action": "ping",
+  "text": "marco: is the limiter still on track for noon?"
+ },
+ {
+  "id": "d07",
+  "ts": "2026-10-30T09:24:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #43 export pagination",
+  "action": "pr_opened",
+  "text": "PR #43 opened by agent: cursor pagination, 480 lines changed."
+ },
+ {
+  "id": "d08",
+  "ts": "2026-10-30T09:31:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #45 dependency bumps",
+  "action": "review_requested",
+  "text": "Review requested from dana on PR #45: bump 14 dependencies."
+ },
+ {
+  "id": "d09",
+  "ts": "2026-10-30T09:38:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "ping",
+  "text": "leo: PR #44 is blocking the QA build, any ETA?"
+ },
+ {
+  "id": "d10",
+  "ts": "2026-10-30T09:44:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #41 rate limiter",
+  "action": "work",
+  "text": "Agent: burst traffic integration tests still missing in limiter.test.ts."
+ },
+ {
+  "id": "d11",
+  "ts": "2026-10-30T09:50:00-05:00",
+  "source_id": "email:work",
+  "context": "Billing migration sign-off",
+  "action": "work",
+  "text": "Opened billing migration doc, read section 2 of 5."
+ },
+ {
+  "id": "d12",
+  "ts": "2026-10-30T09:55:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #43 export pagination",
+  "action": "ping",
+  "text": "ana: customer asked again about the export timeout"
+ },
+ {
+  "id": "d13",
+  "ts": "2026-10-30T10:02:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #45 dependency bumps",
+  "action": "closed",
+  "text": "PR #45 merged by dana without review comments; CI skipped.",
+  "review": false
+ },
+ {
+  "id": "d14",
+  "ts": "2026-10-30T10:10:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #43 export pagination",
+  "action": "work",
+  "text": "Agent: pagination done, tests not run yet."
+ },
+ {
+  "id": "d15",
+  "ts": "2026-10-30T10:15:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "ping",
+  "text": "leo: pinging again on PR #44"
+ },
+ {
+  "id": "d15a",
+  "ts": "2026-10-30T10:18:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #41 rate limiter",
+  "action": "ci_run",
+  "text": "CI run #812 passed on PR #41: 214 tests, log attached."
+ },
+ {
+  "id": "d15b",
+  "ts": "2026-10-30T10:20:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #41 rate limiter",
+  "action": "approved",
+  "lines": 612,
+  "review_seconds": 1080,
+  "review_comments": 3,
+  "files_viewed": 9,
+  "text": "PR #41 approved by dana after 18 min: 3 comments, 9 of 9 files viewed."
+ },
+ {
+  "id": "d16",
+  "ts": "2026-10-30T10:22:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #41 rate limiter",
+  "action": "closed",
+  "text": "Agent session closed: burst tests added, npm test passed, PR #41 reviewed and merged.",
+  "review": true
+ },
+ {
+  "id": "d17",
+  "ts": "2026-10-30T10:30:00-05:00",
+  "source_id": "email:work",
+  "context": "Billing migration sign-off",
+  "action": "ping",
+  "text": "Priya: can we do the sign-off before Monday?"
+ },
+ {
+  "id": "d18",
+  "ts": "2026-10-30T10:41:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #46 webhook retries",
+  "action": "review_requested",
+  "text": "Review requested from dana on PR #46: webhook retries, 350 lines changed."
+ },
+ {
+  "id": "d19",
+  "ts": "2026-10-30T10:48:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #43 export pagination",
+  "action": "closed",
+  "text": "Agent session closed with tests not run; PR #43 still waiting for review.",
+  "review": false
+ },
+ {
+  "id": "d20",
+  "ts": "2026-10-30T10:55:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #46 webhook retries",
+  "action": "ping",
+  "text": "sam: could you look at #46 before lunch?"
+ },
+ {
+  "id": "d21",
+  "ts": "2026-10-30T11:05:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "ping",
+  "text": "leo: QA is waiting on PR #44"
+ },
+ {
+  "id": "d22",
+  "ts": "2026-10-30T11:20:00-05:00",
+  "source_id": "email:work",
+  "context": "Billing migration sign-off",
+  "action": "work",
+  "text": "Opened billing migration doc again, read section 3 of 5."
+ },
+ {
+  "id": "d23",
+  "ts": "2026-10-30T11:22:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #47 billing export",
+  "action": "session_started",
+  "text": "Agent session started: billing CSV export for Priya."
+ },
+ {
+  "id": "d24",
+  "ts": "2026-10-30T11:26:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "PR #47 billing export",
+  "action": "work",
+  "text": "Agent: implementation complete, all tests pass."
+ },
+ {
+  "id": "d25",
+  "ts": "2026-10-30T11:27:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #47 billing export",
+  "action": "pr_opened",
+  "lines": 800,
+  "text": "PR #47 opened by agent: billing CSV export, 800 lines changed."
+ },
+ {
+  "id": "d26",
+  "ts": "2026-10-30T11:28:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #47 billing export",
+  "action": "approved",
+  "lines": 800,
+  "review_seconds": 40,
+  "review_comments": 0,
+  "files_viewed": 0,
+  "text": "PR #47 approved by dana after 40 s: 0 comments, 0 of 23 files viewed."
+ },
+ {
+  "id": "d27",
+  "ts": "2026-10-30T11:29:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #47 billing export",
+  "action": "closed",
+  "review": true,
+  "text": "PR #47 merged by dana; no CI run attached."
+ },
+ {
+  "id": "d28",
+  "ts": "2026-10-30T11:35:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "anchor_start",
+  "assigned_by": "d03",
+  "text": "dana: starting the review of PR #44 now"
+ },
+ {
+  "id": "d29",
+  "ts": "2026-10-30T11:41:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "Session middleware refactor",
+  "action": "work",
+  "trigger": "ai_remark",
+  "text": "Agent remark while reviewing #44: the session middleware uses a deprecated crypto API, want me to refactor it?"
+ },
+ {
+  "id": "d30",
+  "ts": "2026-10-30T11:48:00-05:00",
+  "source_id": "agent:coding-sessions",
+  "context": "Session middleware refactor",
+  "action": "work",
+  "text": "Agent: refactoring session middleware, 9 files touched."
+ },
+ {
+  "id": "d31",
+  "ts": "2026-10-30T12:02:00-05:00",
+  "source_id": "github:repo",
+  "context": "Session middleware refactor",
+  "action": "work",
+  "text": "commit 9ac31e2: refactor session middleware crypto"
+ },
+ {
+  "id": "d32",
+  "ts": "2026-10-30T12:12:00-05:00",
+  "source_id": "chat:team",
+  "context": "PR #44 auth ownership check",
+  "action": "ping",
+  "text": "leo: any update on PR #44?"
+ },
+ {
+  "id": "d33",
+  "ts": "2026-10-30T12:15:00-05:00",
+  "source_id": "github:repo",
+  "context": "PR #44 auth ownership check",
+  "action": "work",
+  "text": "dana resumed the review of PR #44: 2 comments added."
+ }
 ]

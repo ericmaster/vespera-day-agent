@@ -3,7 +3,7 @@
 import { json } from './adapters/index.js';
 import { validateProposal } from './validator.js';
 
-export const DEFAULT_NOW = '2026-10-30T11:30:00-05:00';
+export const DEFAULT_NOW = '2026-10-30T12:30:00-05:00';
 
 export function createState() {
   return { events: json('calendar.json'), tasks: json('tasks.json'), notes: [], applied: [], log: [], alerts: [], drafts: [], now: process.env.DAY_NOW || DEFAULT_NOW };

@@ -34,8 +34,8 @@ test('block overlapping the optional demo is invalid until decline is approved',
 test('applied block makes a later overlapping proposal invalid', () => {
   const { store, state, tb } = setup();
   const ev = [{ source_id: 'chat:team', item_id: 'chat-1', quote: "yes, I'll get it merged by Friday noon" }];
-  const a = tb.propose_change({ type: 'schedule_block', summary: 'a', payload: { title: 'A', start: '2026-10-30T12:00:00-05:00', end: '2026-10-30T13:00:00-05:00' }, evidence: ev });
-  const b = tb.propose_change({ type: 'schedule_block', summary: 'b', payload: { title: 'B', start: '2026-10-30T12:30:00-05:00', end: '2026-10-30T13:30:00-05:00' }, evidence: ev });
+  const a = tb.propose_change({ type: 'schedule_block', summary: 'a', payload: { title: 'A', start: '2026-10-30T16:00:00-05:00', end: '2026-10-30T17:00:00-05:00' }, evidence: ev });
+  const b = tb.propose_change({ type: 'schedule_block', summary: 'b', payload: { title: 'B', start: '2026-10-30T16:30:00-05:00', end: '2026-10-30T17:30:00-05:00' }, evidence: ev });
   assert.equal(b.status, 'pending');
   approve(store, a.id, state, tb.ctx);
   assert.equal(store[1].status, 'invalid');
@@ -58,7 +58,7 @@ test('offline agent only proposes from granted sources', () => {
   const { store, tb } = setup(['email:work']);
   const r = runOffline(tb);
   assert.equal(store.length, 1);
-  assert.match(r.summary, /skipped 6/);
+  assert.match(r.summary, /skipped 10/);
 });
 
 test('consent log records reads and blocks non-granted attempts', () => {

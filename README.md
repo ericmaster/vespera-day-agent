@@ -14,19 +14,22 @@ Built for the Meta Global AI Developer Hackathon (Cerebral Valley, indie track).
 - `fixtures/day.json`: one fictional Friday, 22 events across 4 sources, 6 work items, review overload.
 - `src/metrics.js` (deterministic, granted sources only, up to the simulated clock): `switches_total`, `switches_max_per_hour`, `opened`, `closed_with_review`, `closed_without_review`, `review_backlog`.
 - Tool `get_day_metrics`; new proposal types `alert {metric,value,message}` (value must equal the computed metric) and `team_status_draft {channel,text}` (stored, never sent); `schedule_block` with `no_interrupt:true`.
+- **Task-drift detector** (`detectDrift`): an anchor is the assigned task plus its evidence (`anchor_start`, `assigned_by`). A trigger event (`ai_remark`, `mention`, `self`) in another context starts a side-quest that lasts until activity returns to the anchor; ≥ `DRIFT_MINUTES` (default 15) → drift. Fixture: an agent remark during the PR #44 review leads to a 31-min middleware refactor. The agent proposes a parked task and a return to the anchor.
+- **Rubber-stamp detector** (`reviewFlags`): "reviewed" counts only with evidence. Flags `too_fast` (< 1 min per 100 lines), `no_ci`, `unverified_claim` (agent said tests pass, no CI log), `no_review_activity` (0 comments, 0 files viewed). Fixture: PR #47, 800 lines approved in 40 s. The agent proposes a verification checklist.
+- Detector alerts must cite the detector's own evidence event (drift trigger, flag event) or the validator rejects them.
 - Guardrail: proposals with health/wellness language are rejected by the validator.
-- UI: core-metric card, timeline (↯ = switch), simulated clock + **Check now**, drafts panel.
+- UI: core-metric card, Task drift and Review evidence panels, before → now card (since the first check), timeline (↯ = switch), simulated clock + **Check now**, drafts panel.
 
 ## 3-minute demo
 | Time | Do | Show / say |
 |---|---|---|
-| 0:00 | Title | "Agents write the code. Reviewing it is the job, and every ping pulls you out of the PR. Faros: 31% more PRs merge with no review." |
-| 0:20 | All sources off; grant chat, GitHub, agent sessions, email, calendar | Consent log; one ungranted read blocked in red. "The dev owns the data." |
-| 0:45 | Clock 09:30 → Check now, then 11:30 → Check now | Timeline fills; card goes to **1/6 closed with proper review**, 2 without, 20 switches (9 in one hour) |
-| 1:20 | Agent trace (Muse Spark) | `get_day_metrics` → 3 alerts quoting "QA is waiting on PR #44", "merged… without review comments; CI skipped" |
-| 1:50 | Show a rejected proposal | Validator: "metric … is 9, not 3" / out-of-scope language. "The model never invents numbers." |
-| 2:10 | Approve no-interrupt review block + #release draft | Calendar shows 🚫 block before release cut; draft panel "not sent" |
-| 2:35 | Close | "It doesn't measure your hours, it measures whether you got to review." Meta stack: Muse Spark tools, Voice Transcribe. |
+| 0:00 | Title | "Agents write the code. Reviewing it is the job. Faros: 31% more PRs merge with no review." |
+| 0:15 | All sources off; grant chat, GitHub, agent sessions, email, calendar, tasks | Consent log; one ungranted read blocked in red. "The dev owns the data." |
+| 0:35 | Clock 11:30 → Check now | Card: 1/7 closed with proper review. Review evidence: PR #47 "marked reviewed, evidence missing": 800 lines in 40 s, agent said "all tests pass", no CI log |
+| 1:05 | Clock 12:30 → Check now | Task drift: 31 min on the middleware refactor while PR #44 was assigned; trigger = AI remark "want me to refactor it?" |
+| 1:30 | Muse Spark trace | `get_day_metrics` → alerts quoting the trigger and the 40 s approval; one malformed alert rejected, then fixed |
+| 1:55 | Approve: parked side-quest, PR #47 checklist, no-interrupt review block, #release draft | Calendar 🚫 block; checklist ☐; draft "not sent"; before → now card updates |
+| 2:35 | Close | "It doesn't measure your hours, it measures whether you got to review." Deterministic detectors, Muse Spark phrases and proposes, validator checks, you approve. |
 
 ## How consent works
 - Every source (git repo, email, chat, coding-agent transcripts, voice/text notes, calendar, task list) starts **off**.

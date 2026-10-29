@@ -9,6 +9,8 @@ table{font-size:.85rem;border-collapse:collapse;width:100%}td{border-bottom:1px 
 <p><b>It doesn't measure your hours, it measures whether you got to review.</b> You grant each source; the data stays yours. Every alert and change shows its evidence, passes a deterministic validator, and waits for your approval. Nothing is sent.</p>
 <div class="card" id="kpi"></div>
 <p>Simulated clock: <select id="clock"></select> <button id="check">Check now</button></p>
+<div class="grid" style="grid-template-columns:1fr 1fr"><div class="card"><b>Task drift</b><div id="drift"></div></div><div class="card"><b>Review evidence</b><div id="rstamp"></div></div></div>
+<div class="card" id="eod"></div>
 <h2>Context-switch timeline (granted sources only)</h2><div id="timeline" style="font-size:.8rem;max-height:220px;overflow:auto"></div>
 <div class="grid"><div>
 <h2>1. Grant sources</h2><div id="sources"></div>
@@ -33,7 +35,7 @@ async function loadSources(){const d=await api('/api/sources');const m=$('#mode'
  $('#sources').innerHTML=d.sources.map(s=>`<label class="card" style="display:block"><input type="checkbox" data-id="${s.id}" ${s.granted?'checked':''}> <b>${s.kind}</b> ${esc(s.label)}</label>`).join('');
  document.querySelectorAll('[data-id]').forEach(c=>c.onchange=async()=>{await api('/api/grants',{id:c.dataset.id,granted:c.checked});refresh();});}
 async function refresh(){const s=await api('/api/state');
- $('#proposals').innerHTML=s.proposals.map(p=>`<div class="card ${p.status}"><b>${p.type}</b>: ${esc(p.summary)} <small>[${p.status}]</small><pre>${esc(JSON.stringify(p.payload,null,1))}</pre>
+ $('#proposals').innerHTML=s.proposals.map(p=>`<div class="card ${p.status}"><b>${p.type}</b>: ${esc(p.summary)} <small>[${p.status}]</small><pre>${esc(JSON.stringify(p.payload,null,1))}</pre>${p.payload.checklist?'<ul>'+p.payload.checklist.map(c=>`<li>☐ ${esc(c)}</li>`).join('')+'</ul>':''}
  ${p.evidence.map(e=>`<blockquote>“${esc(e.quote)}” <small>${e.source_id} / ${e.item_id} ${e.verified?'✔ verified':'✘ not found'}</small></blockquote>`).join('')}
  ${p.validation.errors.length?`<p class="blocked">Validator: ${esc(p.validation.errors.join('; '))}</p>`:''}
  ${['pending','invalid'].includes(p.status)?`<button ${p.status!=='pending'?'disabled':''} onclick="act('${p.id}','approve')">Approve</button><button onclick="act('${p.id}','reject')">Reject</button>`:''}</div>`).join('')||'<i>none yet</i>';
@@ -41,8 +43,12 @@ async function refresh(){const s=await api('/api/state');
  $('#events').innerHTML=s.events.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(e=>`<div>${t(e.start)}–${t(e.end).split(', ').pop()} ${esc(e.title)} ${e.fixed?'🔒':''}${e.no_interrupt?' 🚫 no interruptions':''}${e.from_proposal?' ✨':''}</div>`).join('');
  $('#tasks').innerHTML=s.tasks.map(x=>`<div>☐ ${esc(x.title)}${x.deadline?' — due '+t(x.deadline):''}${x.from_proposal?' ✨':''}</div>`).join('');
  const d=s.day,m=d.metrics;
- $('#kpi').innerHTML=`<span style="font-size:2rem;font-weight:700">${m.closed_with_review}/${m.opened}</span> items <b>closed with proper review</b> · ${m.closed_without_review} closed without review/tests · review backlog ${m.review_backlog} · ${m.switches_total} context switches (max ${m.switches_max_per_hour}/h) <small>as of ${t(s.now)}</small>`;
+ $('#kpi').innerHTML=`<span style="font-size:2rem;font-weight:700">${m.closed_with_review}/${m.opened}</span> items <b>closed with proper review</b> · ${m.rubber_stamp_reviews} rubber-stamped · ${m.closed_without_review} closed without review/tests · review backlog ${m.review_backlog} · ${m.switches_total} context switches (max ${m.switches_max_per_hour}/h) <small>as of ${t(s.now)}</small>`;
  $('#timeline').innerHTML=d.timeline.map(e=>`<div>${e.switch?'↯':'·'} ${t(e.ts).split(', ').pop()} <b>${esc(e.context)}</b> <small>${e.source_id} · ${e.action} · ${e.id}</small></div>`).join('')||'<i>grant chat, email, agent sessions or GitHub to see the timeline</i>';
+ $('#drift').innerHTML=d.drift.map(x=>`<p>↪ <b>${x.minutes} min</b> on <i>${esc(x.side_quest)}</i> while assigned <b>${esc(x.anchor)}</b> (evidence ${x.anchor_evidence.join(', ')})<br><small>trigger: ${x.trigger} · ${x.trigger_event} · ${t(x.start).split(', ').pop()}–${t(x.end).split(', ').pop()}</small></p>`).join('')||'<i>no drift ≥ threshold</i>';
+ $('#rstamp').innerHTML=d.items.filter(i=>i.review_flags).map(i=>`<p><b>${esc(i.context)}</b>: ${i.state==='rubber_stamp'?'<span class="blocked">marked reviewed, evidence missing</span>':'✔ review evidence present'}${i.review_flags.map(f=>`<br><small>✘ ${f.rule}: ${esc(f.detail)} (${f.evidence})</small>`).join('')}</p>`).join('')||'<i>no closed reviews yet</i>';
+ const b=s.baseline?.metrics, ap=s.applied;
+ $('#eod').innerHTML=b?`<b>Before → now</b> (since first check ${t(s.baseline.at).split(', ').pop()}): closed with proper review ${b.closed_with_review} → ${m.closed_with_review} · rubber-stamped ${b.rubber_stamp_reviews} → ${m.rubber_stamp_reviews} · backlog ${b.review_backlog} → ${m.review_backlog} · max drift ${b.drift_minutes_max} → ${m.drift_minutes_max} min · approved: ${ap.filter(a=>a.payload.no_interrupt).length} no-interrupt block(s), ${ap.filter(a=>a.payload.parked).length} parked side-quest(s), ${ap.filter(a=>a.payload.checklist).length} verification checklist(s), ${s.drafts.length} draft(s)`:'<i>Before/after appears after the first Check now.</i>';
  $('#drafts').innerHTML=s.drafts.map(x=>`<div class="card"><small>${esc(x.channel)} · draft, not sent</small><br>${esc(x.text)}</div>`).join('')||'<i>none</i>';
  $('#notes').innerHTML=s.notes.map(n=>`<div class="card"><small>${n.id} · ${n.origin}</small><br>${esc(n.text)}</div>`).join('');}
 async function act(id,a){const r=await fetch(`/api/proposals/${id}/${a}`,{method:'POST'}).then(r=>r.json());if(r.error)alert(r.error);refresh();}
@@ -61,7 +67,7 @@ let rec;$('#rec').onclick=async()=>{if(rec?.state==='recording'){rec.stop();retu
  const st=await navigator.mediaDevices.getUserMedia({audio:true});const chunks=[];rec=new MediaRecorder(st);rec.ondataavailable=e=>chunks.push(e.data);
  rec.onstop=()=>{st.getTracks().forEach(x=>x.stop());$('#rec').textContent='● Record';sendAudio(new Blob(chunks));};rec.start();$('#rec').textContent='■ Stop';};
 $('#file').onchange=e=>e.target.files[0]&&sendAudio(e.target.files[0]);
-['09:30','10:30','11:30','12:30'].forEach(h=>$('#clock').insertAdjacentHTML('beforeend',`<option ${h==='11:30'?'selected':''}>${h}</option>`));
+['09:30','10:30','11:30','12:00','12:30','17:30'].forEach(h=>$('#clock').insertAdjacentHTML('beforeend',`<option ${h==='12:30'?'selected':''}>${h}</option>`));
 $('#clock').onchange=async()=>{await api('/api/clock',{now:`2026-10-30T${$('#clock').value}:00-05:00`});refresh();};
 $('#check').onclick=async()=>{await $('#clock').onchange();$('#run').onclick();};
 loadSources();refresh();
