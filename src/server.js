@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { config } from './config.js';
 import { handle, audit } from './app.js';
-import { refreshActivityWatch } from './adapters/attention.js';
+import { refreshActivityWatch, toIso, attentionStatus } from './adapters/attention.js';
 import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -27,7 +27,7 @@ createServer(async (req, res) => {
 
 // Local ActivityWatch (only when AW_URL is set): category-only spans, refreshed every minute. Range: AW_START/AW_END or today.
 if (process.env.AW_URL) {
-  const range = () => { const d = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); return [process.env.AW_START || `${d}T00:00:00-05:00`, process.env.AW_END || new Date().toISOString()]; };
-  const tick = () => refreshActivityWatch(...range()).then((s) => console.log(s ? `ActivityWatch: ${s.length} category spans` : 'ActivityWatch unreachable, using fixture'));
+  const range = () => { const now = toIso(Date.now()); return [process.env.AW_START || `${now.slice(0, 10)}T00:00:00${now.slice(-6)}`, process.env.AW_END || now]; };
+  const tick = () => refreshActivityWatch(...range()).then((s) => console.log(s ? `ActivityWatch: ${s.length} category spans` : attentionStatus().error));
   tick(); setInterval(tick, 60000);
 }

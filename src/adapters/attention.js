@@ -27,7 +27,18 @@ export function categorize({ app = '', url = '' } = {}, rules = RULES) {
 }
 
 const ms = (iso) => new Date(iso).getTime();
-const toIso = (t) => { const d = new Date(t - 5 * 3600e3), p = (n) => String(n).padStart(2, '0'); return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00-05:00`; };
+// Local ISO with the real offset of the configured timezone at that instant (no hardcoded -05:00).
+export const TZ = () => process.env.VDA_TZ || 'America/Bogota';
+export function offsetMinutes(t, tz = TZ()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    .formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+  return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(t / 1000) * 1000) / 60000);
+}
+export function toIso(t, tz = TZ()) {
+  const off = offsetMinutes(t, tz), d = new Date(t + off * 60000), p = (n) => String(n).padStart(2, '0');
+  const sign = off < 0 ? '-' : '+', o = Math.abs(off);
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00${sign}${p(Math.floor(o / 60))}:${p(o % 60)}`;
+}
 
 // AW bucket events -> per-minute categories -> merged segments. Titles/URLs are dropped here.
 export function mapAwEvents({ window = [], web = [], afk = [] }, start, end) {
@@ -49,16 +60,40 @@ export function mapAwEvents({ window = [], web = [], afk = [] }, start, end) {
 }
 
 let awCache = null, awStatus = { source: 'fixture', error: null };
-export async function refreshActivityWatch(start, end, url = process.env.AW_URL, fetchFn = fetch) {
+// ActivityWatch REST (https://docs.activitywatch.net/en/latest/api/rest.html). Error bodies may be HTML
+// (aw-server-rust), so never trust them: check res.ok and parse text ourselves.
+export async function awGet(url, path, { fetchFn = fetch, apiKey = process.env.AW_API_KEY } = {}) {
+  const res = await fetchFn(`${url}${path}`, { headers: { Accept: 'application/json', ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) } });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${path.split('?')[0]} HTTP ${res.status}${/^\s*</.test(text) ? ' (HTML error page)' : ''}`);
+  try { return JSON.parse(text); } catch { throw new Error(`${path.split('?')[0]} returned non-JSON${/^\s*</.test(text) ? ' (HTML)' : ''}`); }
+}
+// Buckets for THIS host (from /api/0/info, or AW_HOSTNAME). aw-watcher-web buckets often report hostname
+// "unknown", so those are accepted too; all web buckets (one per browser) are merged.
+export function pickBuckets(buckets, hostname) {
+  const all = Object.entries(buckets).map(([id, b]) => ({ id, ...b }));
+  const mine = (b) => b.hostname === hostname;
+  return {
+    window: all.filter((b) => (b.type === 'currentwindow' || b.id.startsWith('aw-watcher-window')) && mine(b)).map((b) => b.id),
+    afk: all.filter((b) => (b.type === 'afkstatus' || b.id.startsWith('aw-watcher-afk')) && mine(b)).map((b) => b.id),
+    web: all.filter((b) => b.id.startsWith('aw-watcher-web') && (mine(b) || !b.hostname || b.hostname === 'unknown')).map((b) => b.id),
+  };
+}
+export async function refreshActivityWatch(start, end, url = process.env.AW_URL, fetchFn = fetch, { apiKey = process.env.AW_API_KEY, hostname = process.env.AW_HOSTNAME } = {}) {
   if (!url) return null;
+  url = url.replace(/\/+$/, '');
+  const fail = (reason) => { awCache = null; awStatus = { source: 'fixture', error: `ActivityWatch: ${reason}; using the simulated fixture` }; return null; };
   try {
-    const buckets = await (await fetchFn(`${url}/api/0/buckets`)).json();
-    const pick = (re) => Object.keys(buckets).find((k) => re.test(k));
-    const get = async (id) => id ? (await fetchFn(`${url}/api/0/buckets/${encodeURIComponent(id)}/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)).json() : [];
-    const segs = mapAwEvents({ window: await get(pick(/^aw-watcher-window/)), web: await get(pick(/^aw-watcher-web/)), afk: await get(pick(/^aw-watcher-afk/)) }, start, end);
-    awCache = segs; awStatus = { source: 'activitywatch', error: null, segments: segs.length };
+    const o = { fetchFn, apiKey };
+    const host = hostname || (await awGet(url, '/api/0/info', o)).hostname;
+    const ids = pickBuckets(await awGet(url, '/api/0/buckets/', o), host);
+    if (!ids.window.length) return fail(`no aw-watcher-window bucket for host "${host}"`);
+    const q = `?start=${encodeURIComponent(new Date(start).toISOString())}&end=${encodeURIComponent(new Date(end).toISOString())}&limit=-1`;
+    const get = async (list) => (await Promise.all(list.map((id) => awGet(url, `/api/0/buckets/${encodeURIComponent(id)}/events${q}`, o)))).flat();
+    const segs = mapAwEvents({ window: await get(ids.window), web: await get(ids.web), afk: await get(ids.afk) }, start, end);
+    awCache = segs; awStatus = { source: 'activitywatch', error: null, host, buckets: ids, segments: segs.length };
     return segs;
-  } catch (e) { awCache = null; awStatus = { source: "fixture", error: `ActivityWatch: ${e.message}` }; return null; }
+  } catch (e) { return fail(e.message); }
 }
 export const attentionStatus = () => awStatus;
 export const attentionSegments = () => awCache || json('attention.json').segments;

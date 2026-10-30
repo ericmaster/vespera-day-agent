@@ -5,7 +5,7 @@ import { createGrants } from '../src/grants.js';
 import { makeToolbox } from '../src/tools.js';
 import { createState } from '../src/state.js';
 import { computeDay, dayEvents } from '../src/metrics.js';
-import { categorize, mapAwEvents, aggregate, phrase, attentionSegments, refreshActivityWatch } from '../src/adapters/attention.js';
+import { categorize, mapAwEvents, aggregate, phrase, attentionSegments, refreshActivityWatch, attentionStatus, pickBuckets, toIso } from '../src/adapters/attention.js';
 import { BANNED } from '../src/validator.js';
 
 const WORK = ['chat:team', 'email:work', 'agent:coding-sessions', 'github:repo'];
@@ -46,20 +46,46 @@ test('categorize: closed set, browsers without tab class are unknown, unmatched 
 });
 test('ActivityWatch mapping keeps only categories: no titles or URLs leave the adapter', async () => {
   const T = (h) => new Date(at(h)).toISOString();
-  const B = { 'aw-watcher-window_h': {}, 'aw-watcher-afk_h': {}, 'aw-watcher-web-chrome_h': {} };
+  const B = { 'aw-watcher-window_h': { type: 'currentwindow', hostname: 'h' }, 'aw-watcher-afk_h': { type: 'afkstatus', hostname: 'h' }, 'aw-watcher-web-chrome_h': { type: 'web.tab.current', hostname: 'unknown' },
+    'aw-watcher-window_other': { type: 'currentwindow', hostname: 'other' } };
   const ev = {
     'aw-watcher-window_h': [{ timestamp: T('10:00'), duration: 600, data: { app: 'Google-chrome', title: 'SECRET PR title' } }, { timestamp: T('10:10'), duration: 300, data: { app: 'Code', title: 'secret.js' } }],
     'aw-watcher-web-chrome_h': [{ timestamp: T('10:00'), duration: 300, data: { url: 'https://github.com/o/r/pull/9', title: 'SECRET' } }, { timestamp: T('10:05'), duration: 300, data: { url: 'https://youtube.com/watch?v=1', title: 'SECRET video' } }],
     'aw-watcher-afk_h': [{ timestamp: T('10:15'), duration: 300, data: { status: 'afk' } }],
   };
-  const fetchFn = async (u) => ({ json: async () => (u.endsWith('/buckets') ? B : ev[decodeURIComponent(u.split('/buckets/')[1].split('/events')[0])]) });
+  const seen = [];
+  const fetchFn = async (u, o) => { seen.push([u, o]); const body = u.endsWith('/api/0/info') ? { hostname: 'h' } : u.endsWith('/buckets/') ? B : ev[decodeURIComponent(u.split('/buckets/')[1].split('/events')[0])];
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) }; };
   const segs = await refreshActivityWatch(at('10:00'), at('10:20'), 'http://aw', fetchFn);
   assert.deepEqual(segs.map((s) => [s.category, s.start.slice(11, 16), s.end.slice(11, 16)]), [['code_review', '10:00', '10:05'], ['social_video', '10:05', '10:10'], ['editor', '10:10', '10:15'], ['afk', '10:15', '10:20']]);
   const dump = JSON.stringify(segs);
   assert.ok(!/SECRET|secret|github\.com|youtube/.test(dump));
   for (const s of segs) assert.deepEqual(Object.keys(s).sort(), ['category', 'end', 'id', 'signal', 'start']);
+  assert.ok(seen.some(([u]) => u.endsWith('/api/0/buckets/')));
+  assert.ok(seen.filter(([u]) => u.includes('/events')).every(([u]) => u.includes('limit=-1')));
+  assert.ok(!seen.some(([u]) => u.includes('_other')), 'other host bucket ignored');
   await refreshActivityWatch(null, null, 'http://aw', async () => { throw new Error('down'); }); // falls back to fixture
   assert.ok(attentionSegments().length > 0);
+  assert.match(attentionStatus().error, /down; using the simulated fixture/);
+});
+test('ActivityWatch: HTML error body, missing window bucket, Bearer key, merged web buckets', async () => {
+  const html = async () => ({ ok: false, status: 422, text: async () => '<!doctype html><h1>Unprocessable</h1>' });
+  assert.equal(await refreshActivityWatch(at('10:00'), at('10:20'), 'http://aw', html), null);
+  assert.match(attentionStatus().error, /\/api\/0\/info HTTP 422 \(HTML error page\)/);
+  const notJson = async () => ({ ok: true, status: 200, text: async () => '<html>proxy</html>' });
+  await refreshActivityWatch(at('10:00'), at('10:20'), 'http://aw', notJson);
+  assert.match(attentionStatus().error, /non-JSON \(HTML\)/);
+  let auth;
+  const noWin = async (u, o) => { auth = o.headers.Authorization; return { ok: true, status: 200, text: async () => JSON.stringify(u.endsWith('/info') ? { hostname: 'h' } : {}) }; };
+  await refreshActivityWatch(at('10:00'), at('10:20'), 'http://aw', noWin, { apiKey: 'k1' });
+  assert.equal(auth, 'Bearer k1'); assert.match(attentionStatus().error, /no aw-watcher-window bucket for host "h"/);
+  const p = pickBuckets({ 'aw-watcher-web-chrome': { hostname: 'unknown' }, 'aw-watcher-web-firefox': { hostname: 'unknown' }, 'aw-watcher-window_h': { type: 'currentwindow', hostname: 'h' } }, 'h');
+  assert.deepEqual(p.web, ['aw-watcher-web-chrome', 'aw-watcher-web-firefox']);
+});
+test('toIso derives the offset from the timezone', () => {
+  assert.equal(toIso(Date.parse('2026-10-30T16:00:00Z'), 'America/Bogota'), '2026-10-30T11:00:00-05:00');
+  assert.equal(toIso(Date.parse('2026-07-01T16:00:00Z'), 'Europe/Madrid'), '2026-07-01T18:00:00+02:00');
+  assert.equal(toIso(Date.parse('2026-12-01T16:00:00Z'), 'Asia/Kolkata'), '2026-12-01T21:30:00+05:30');
 });
 const tbAll = () => { const g = createGrants(adapters); adapters.forEach((a) => g.set(a.id, true)); const st = createState(); return makeToolbox(g, [], st); };
 const alert = (message, value = 1, extra = []) => ({ type: 'alert', summary: 'Review window', payload: { metric: 'review_window_off_task', value, message },

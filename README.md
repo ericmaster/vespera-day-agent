@@ -89,3 +89,14 @@ Legacy `MODEL_API_BASE` / `MUSE_MODEL` still work. While direct Meta Model API a
 - It is not a chatbot and not document Q&A. It is an agent whose actions are checked and approved.
 
 All demo data in `fixtures/` is fictional.
+
+## ActivityWatch (optional, local only)
+Vespera reads category-only foreground spans from a local [ActivityWatch](https://docs.activitywatch.net/en/latest/api/rest.html) server when `AW_URL` is set; otherwise (and always on the hosted Worker) it uses the SIMULATED `fixtures/attention.json`. Titles and URLs never leave `src/adapters/attention.js`. Grants `attention:window`, `attention:web`, `attention:afk` are off by default.
+
+Try it without touching your real ActivityWatch data (port 5600) by using AW's **testing** server (port 5666, separate database):
+1. Install the server in a venv: `python3 -m venv ~/.aw-test && ~/.aw-test/bin/pip install aw-server`
+2. Start it in testing mode: `~/.aw-test/bin/aw-server --testing` (check: `curl localhost:5666/api/0/info` shows `"testing": true`)
+3. Seed the simulated Friday (synthetic titles/URLs): `node scripts/aw-seed.mjs` (`--dry-run` prints the import JSON; the script refuses port 5600 and non-testing servers unless `--force`)
+4. Run Vespera against it: `AW_URL=http://localhost:5666 AW_START=2026-10-30T08:30:00-05:00 AW_END=2026-10-30T12:30:00-05:00 npm run demo:serve`, then grant the three attention sources in the Live agent tab.
+
+Your real ActivityWatch: `AW_URL=http://localhost:5600 npm run demo:serve` (reads today; buckets picked by the hostname in `/api/0/info`; all `aw-watcher-web-*` buckets merged). Optional: `AW_API_KEY` (sent as `Authorization: Bearer`, for aw-server-rust with API keys on), `AW_HOSTNAME` to override the host, `VDA_TZ` (default `America/Bogota`). On any error (HTTP status, HTML error page, missing window bucket) the server logs the reason and falls back to the fixture.
