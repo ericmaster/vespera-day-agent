@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 // Synthetic foreground per category; chosen so the adapter's own rules map them back to the same category.
 export const SYNTH = {
   window: { editor: { app: 'Code', title: 'session-middleware.js - orbit-api (synthetic)' }, ai_session: { app: 'Claude', title: 'Agent session (synthetic)' },
-    chat: { app: 'Slack', title: '#team (synthetic)' }, email: { app: 'Thunderbird', title: 'Inbox (synthetic)' }, other: { app: 'zoom', title: 'Meeting (synthetic)' } },
+    chat: { app: 'Slack', title: '#team (synthetic)' }, email: { app: 'Thunderbird', title: 'Inbox (synthetic)' }, other: { app: 'gimp', title: 'Image (synthetic)' } },
   web: { code_review: { url: 'https://github.com/example/orbit-api/pull/44/files', title: 'PR #44 (synthetic)' },
     social_video: { url: 'https://www.youtube.com/watch?v=synthetic', title: 'Video (synthetic)' } },
 };

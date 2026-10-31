@@ -4,26 +4,47 @@
 // the rest of Vespera sees {start,end,category,signal} and minute aggregates.
 import { json } from './index.js';
 
-export const CATEGORIES = ['code_review', 'editor', 'ai_session', 'chat', 'email', 'social_video', 'afk', 'other', 'unknown'];
+export const CATEGORIES = ['code_review', 'editor', 'ai_session', 'chat', 'email', 'meeting', 'docs', 'social_video', 'system', 'afk', 'other', 'unknown'];
 export const SIGNALS = { 'attention:window': 'window', 'attention:web': 'web', 'attention:afk': 'afk' };
 // Confidence thresholds on coverage of the span by granted signals. [hyp]: untested team hypotheses.
 export const OBSERVED_MIN = 0.8, PARTIAL_MIN = 0.6; // [hyp]
 export const OFF_TASK_MAX_SHARE = 0.5; // [hyp] review window flagged when code_review < 50% of the span
 export const MAX_APPROVAL_WINDOW_MIN = 30; // [hyp] approval windows longer than this are not judged
-export const LABEL = { code_review: 'code review', editor: 'editor', ai_session: 'AI session', chat: 'chat', email: 'email', social_video: 'video', afk: 'away', other: 'other', unknown: 'unknown' };
+export const LABEL = { code_review: 'code review', editor: 'editor', ai_session: 'AI session', chat: 'chat', email: 'email', meeting: 'meeting', docs: 'docs', social_video: 'video', system: 'system', afk: 'away', other: 'other', unknown: 'unknown' };
 
 // Dev-editable local rules (regex on app / url). Unmatched -> other, never guessed.
+// App names are normalized first: lowercased, path and ".exe" stripped ("C:\...\Antigravity IDE.exe" -> "antigravity ide").
 const RULES = {
-  web: [[/github\.com\/[^/]+\/[^/]+\/pull\//, 'code_review'], [/(youtube\.com|youtu\.be|tiktok\.com|instagram\.com|reddit\.com|twitch\.tv|x\.com|twitter\.com|netflix\.com)/, 'social_video'],
-    [/(mail\.google\.com|outlook\.(office|live)\.com)/, 'email'], [/(slack\.com|teams\.microsoft\.com|discord\.com)/, 'chat'], [/(chatgpt\.com|claude\.ai|cursor\.com|meta\.ai)/, 'ai_session']],
-  app: [[/^(code|cursor|idea|webstorm|vim|nvim|emacs|sublime_text|zed)/i, 'editor'], [/(slack|teams|discord)/i, 'chat'], [/(mail|outlook|thunderbird)/i, 'email'], [/(claude|chatgpt|codex)/i, 'ai_session']],
+  web: [
+    [/github\.com\/[^/]+\/[^/]+\/(pull\/|pulls\b|compare\/|commit\/)|github\.com\/pulls\b|github\.com\/notifications/, 'code_review'],
+    [/(chatgpt\.com|chat\.openai\.com|claude\.ai|gemini\.google\.com|meta\.ai|grok\.com|x\.com\/i\/grok|perplexity\.ai|aistudio\.google\.com)/, 'ai_session'],
+    [/(meet\.google\.com|zoom\.us\/(j|wc|my)\/|teams\.(microsoft|live)\.com\/.*(meetup-join|meeting))/, 'meeting'],
+    [/(mail\.google\.com|outlook\.(office|office365|live)\.com|mail\.proton\.me)/, 'email'],
+    [/(slack\.com|teams\.(microsoft|live)\.com|discord\.com|web\.whatsapp\.com|web\.telegram\.org|messenger\.com)/, 'chat'],
+    [/(youtube\.com|youtu\.be|tiktok\.com|instagram\.com|reddit\.com|twitch\.tv|(^|[/.])x\.com|twitter\.com|facebook\.com|netflix\.com)/, 'social_video'],
+    [/(github\.com|gitlab\.com|bitbucket\.org|localhost|127\.0\.0\.1|vscode\.dev|cursor\.com)/, 'editor'],
+    [/(docs\.google\.com|drive\.google\.com|notion\.so|stackoverflow\.com|developer\.mozilla\.org|readthedocs|\/docs?\/|docs\.|confluence|npmjs\.com|devdocs\.io)/, 'docs'],
+  ],
+  app: [
+    [/^(code|code - insiders|cursor|windsurf|antigravity( ide)?|idea64|idea|pycharm64|pycharm|webstorm64|webstorm|rider64|goland64|clion64|android studio|studio64|devenv|vim|nvim|gvim|emacs|sublime_text|zed|notepad\+\+|windowsterminal|wt|powershell|pwsh|cmd|conhost|openconsole|wsl|wslhost|mintty|bash|alacritty|wezterm(-gui)?|kitty|iterm2|terminal|gnome-terminal(-server)?|konsole|tabby|warp|putty|mobaxterm|github ?desktop|gitkraken|docker desktop)$/, 'editor'],
+    [/^(zoom|cpthost|webex|ciscowebexstart|skype)$/, 'meeting'],
+    [/^(slack|ms-teams|teams|discord|whatsapp|whatsapp\.root|telegram|signal|messenger|element)$/, 'chat'],
+    [/^(outlook|olk|hxoutlook|thunderbird|mail|mailspring)$/, 'email'],
+    [/^(claude|chatgpt|codex|ollama app|lm studio|grok)$/, 'ai_session'],
+    [/^(winword|excel|powerpnt|onenote|notion|obsidian|acrobat|acrord32|sumatrapdf|notepad|evince|okular)$/, 'docs'],
+    [/^(explorer|aw-qt|aw-server(-rust)?|aw-watcher-.*|lockapp|logonui|searchhost|searchapp|searchui|shellexperiencehost|startmenuexperiencehost|applicationframehost|systemsettings|taskmgr|mmc|control|rundll32|dwm|unknown|loginwindow|finder|nautilus|gnome-shell)$/, 'system'],
+    [/^(spotify|vlc|netflix|steam|tiktok|instagram)$/, 'social_video'],
+  ],
 };
-const BROWSERS = /(chrome|chromium|firefox|safari|edge|brave|arc|opera)/i;
+const BROWSERS = /^(chrome|google-chrome|chromium|firefox|safari|msedge|microsoft edge|brave|arc|opera|vivaldi|zen)$/;
+export const normApp = (app = '') => String(app).split(/[\\/]/).pop().trim().toLowerCase().replace(/\.exe$/, '');
+export const isBrowser = (app) => BROWSERS.test(normApp(app));
 export function categorize({ app = '', url = '' } = {}, rules = RULES) {
-  if (url) { for (const [re, c] of rules.web) if (re.test(url)) return c; return 'other'; }
-  if (BROWSERS.test(app)) return 'unknown'; // browser without a granted tab class = browser_unclassified -> unknown
-  for (const [re, c] of rules.app) if (re.test(app)) return c;
-  return app ? 'other' : 'unknown';
+  if (url) { const u = String(url).toLowerCase(); for (const [re, c] of rules.web) if (re.test(u)) return c; return 'other'; }
+  const a = normApp(app);
+  if (BROWSERS.test(a)) return 'unknown'; // browser without a granted tab class = browser_unclassified -> unknown
+  for (const [re, c] of rules.app) if (re.test(a)) return c;
+  return a ? 'other' : 'unknown';
 }
 
 const ms = (iso) => new Date(iso).getTime();
@@ -40,6 +61,14 @@ export function toIso(t, tz = TZ()) {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00${sign}${p(Math.floor(o / 60))}:${p(o % 60)}`;
 }
 
+const WEB_SLACK = 120000;
+function bestTab(web, t) {
+  let best = null, score = -Infinity;
+  for (const e of web) { const a = ms(e.timestamp), b = a + e.duration * 1000;
+    const ov = Math.min(b, t + 60000) - Math.max(a, t), gap = ov > 0 ? 0 : Math.max(a - (t + 60000), t - b);
+    const sc = ov > 0 ? ov : -gap; if (gap <= WEB_SLACK && sc > score) { score = sc; best = e; } }
+  return best;
+}
 // AW bucket events -> per-minute categories -> merged segments. Titles/URLs are dropped here.
 export function mapAwEvents({ window = [], web = [], afk = [] }, start, end) {
   const covers = (evs, t) => evs.find((e) => ms(e.timestamp) <= t && t < ms(e.timestamp) + e.duration * 1000);
@@ -49,7 +78,9 @@ export function mapAwEvents({ window = [], web = [], afk = [] }, start, end) {
     const a = covers(afk, mid);
     if (a?.data?.status === 'afk') { category = 'afk'; signal = 'afk'; }
     else { const w = covers(window, mid);
-      if (w) { const tab = BROWSERS.test(w.data?.app || '') ? covers(web, mid) : null;
+      // aw-watcher-web heartbeats leave short gaps and start late on tab switches: if no tab event covers the
+      // minute's midpoint, take the tab that overlaps this minute the most (else the nearest within WEB_SLACK).
+      if (w) { const tab = isBrowser(w.data?.app) ? (covers(web, mid) || bestTab(web, t)) : null;
         if (tab) { category = categorize({ url: tab.data?.url }); signal = 'web'; } else { category = categorize({ app: w.data?.app }); signal = category === 'unknown' ? 'web' : 'window'; } } }
     if (!category) continue;
     const last = segs.at(-1);

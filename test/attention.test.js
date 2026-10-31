@@ -102,3 +102,30 @@ test('judgment words are rejected', () => {
   const r = tbAll().propose_change(alert('PR #44: 6 of 37 min in code review (observed), you got distracted'));
   assert.match(r.errors.join(), /out-of-scope language/);
 });
+test('categorize: Windows exe names (case/.exe/path-insensitive) and common web apps', () => {
+  const A = (app) => categorize({ app }), U = (url) => categorize({ url });
+  for (const a of ['Antigravity IDE.exe', 'antigravity ide', 'Cursor.exe', 'Code.exe', 'Windsurf.EXE', 'WindowsTerminal.exe', 'pwsh.exe', 'powershell', 'C:\\Tools\\idea64.exe']) assert.equal(A(a), 'editor', a);
+  for (const a of ['slack.exe', 'Discord.exe', 'WhatsApp.exe', 'ms-teams.exe', 'Telegram.exe']) assert.equal(A(a), 'chat', a);
+  for (const a of ['OUTLOOK.EXE', 'olk.exe']) assert.equal(A(a), 'email', a);
+  for (const a of ['Zoom.exe']) assert.equal(A(a), 'meeting', a);
+  for (const a of ['explorer.exe', 'aw-qt.exe', 'LockApp.exe', 'SearchHost.exe']) assert.equal(A(a), 'system', a);
+  for (const a of ['chrome.exe', 'msedge.exe', 'firefox.exe']) assert.equal(A(a), 'unknown', a);
+  assert.equal(A('gimp.exe'), 'other');
+  assert.equal(U('https://github.com/o/r/pull/1/files'), 'code_review');
+  assert.equal(U('https://github.com/pulls'), 'code_review');
+  assert.equal(U('https://github.com/o/r'), 'editor');
+  for (const u of ['https://chatgpt.com/c/x', 'https://claude.ai/chat/x', 'https://gemini.google.com/app', 'https://www.meta.ai/', 'https://grok.com/']) assert.equal(U(u), 'ai_session', u);
+  for (const u of ['https://app.slack.com/client/x', 'https://web.whatsapp.com/', 'https://discord.com/channels/1']) assert.equal(U(u), 'chat', u);
+  assert.equal(U('https://mail.google.com/mail/u/0/'), 'email');
+  assert.equal(U('https://meet.google.com/abc-defg-hij'), 'meeting');
+  assert.equal(U('https://docs.google.com/document/d/x'), 'docs');
+  for (const u of ['https://www.tiktok.com/@a', 'https://x.com/home', 'https://www.facebook.com/', 'https://www.instagram.com/']) assert.equal(U(u), 'social_video', u);
+});
+test('mapAwEvents: browser minutes with a web-heartbeat gap use the nearby tab instead of unknown', () => {
+  const T = (h) => new Date(at(h)).toISOString();
+  const segs = mapAwEvents({
+    window: [{ timestamp: T('10:00'), duration: 600, data: { app: 'chrome.exe', title: 'x' } }, { timestamp: T('10:10'), duration: 120, data: {} }],
+    web: [{ timestamp: T('10:00'), duration: 200, data: { url: 'https://github.com/o/r/pull/2' } }, { timestamp: T('10:05'), duration: 290, data: { url: 'https://github.com/o/r/pull/2/files' } }],
+  }, at('10:00'), at('10:12'));
+  assert.deepEqual(segs.map((s) => [s.category, s.start.slice(11, 16), s.end.slice(11, 16)]), [['code_review', '10:00', '10:10'], ['unknown', '10:10', '10:12']]);
+});
